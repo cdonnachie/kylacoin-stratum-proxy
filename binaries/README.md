@@ -2,6 +2,8 @@
 
 This directory contains the local binaries for both Kylacoin and Lyncoin that will be used in the Docker containers.
 
+⚠️ **CRITICAL**: Only **Linux x86_64 ELF binaries** work with Docker containers! Do NOT use Windows .exe or macOS binaries.
+
 ## Directory Structure:
 
 ```
@@ -19,12 +21,12 @@ binaries/
 
 ## Setup Instructions:
 
-1. **Copy Kylacoin binaries** into `kylacoin/` directory:
+1. **Copy Kylacoin binaries** (Linux x86_64 ELF format) into `kylacoin/` directory:
 
    - `kylacoind`
    - `kylacoin-cli`
 
-2. **Copy Lyncoin binaries** into `lyncoin/` directory:
+2. **Copy Lyncoin binaries** (Linux x86_64 ELF format) into `lyncoin/` directory:
 
    - `lyncoind`
    - `lyncoin-cli`
@@ -42,17 +44,21 @@ binaries/
 
 ## Binary Requirements:
 
+**Platform**: Linux x86_64 ELF executables ONLY
+
 ### Kylacoin:
 
-- Compatible with Ubuntu 24.04 Linux (glibc 2.39+)
-- Statically linked or with required dependencies
-- Executable permissions (will be set automatically)
+- **Format**: Linux x86_64 ELF executable
+- **Compatibility**: Ubuntu 24.04 Linux (glibc 2.39+)
+- **Dependencies**: Statically linked or with required dependencies included
+- **Permissions**: Executable permissions (set automatically by Docker)
 
 ### Lyncoin:
 
-- Compatible with Ubuntu 24.04 Linux (glibc 2.39+)
-- AuxPoW support enabled
-- Executable permissions (will be set automatically)
+- **Format**: Linux x86_64 ELF executable
+- **Compatibility**: Ubuntu 24.04 Linux (glibc 2.39+)
+- **Features**: AuxPoW support enabled
+- **Permissions**: Executable permissions (set automatically by Docker)
 
 ## Troubleshooting:
 
@@ -86,4 +92,14 @@ file binaries/kylacoin/kylacoind
 file binaries/lyncoin/lyncoind
 ```
 
-Should show: `ELF 64-bit LSB executable, x86-64`
+**Expected output:**
+
+```
+binaries/kylacoin/kylacoind: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 3.2.0
+binaries/lyncoin/lyncoind: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 3.2.0
+```
+
+❌ **Wrong formats (will cause container failures):**
+
+- Windows: `PE32+ executable (console) x86-64, for MS Windows`
+- macOS: `Mach-O 64-bit executable x86_64`

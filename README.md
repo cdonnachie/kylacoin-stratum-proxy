@@ -18,10 +18,10 @@ A Docker Compose setup for running a stratum proxy that enables mining Kylacoin 
    # Edit .env with your settings
    ```
 
-3. **Update wallet addresses**:
+3. **Configure wallet addresses** (optional):
    Edit the `.env` file and set:
 
-   - `LCN_WALLET_ADDRESS`: Your Lyncoin address for auxiliary rewards
+   - `LCN_WALLET_ADDRESS`: Your Lyncoin address for dual-chain mining (leave blank for Kylacoin-only mining)
    - Update RPC credentials for security
 
 4. **Start the services**:
@@ -45,23 +45,23 @@ A Docker Compose setup for running a stratum proxy that enables mining Kylacoin 
 
 ### Environment Variables
 
-| Variable             | Description                    | Default                                    |
-| -------------------- | ------------------------------ | ------------------------------------------ |
-| `KCN_RPC_USER`       | Kylacoin RPC username          | kylacoin_user                              |
-| `KCN_RPC_PASS`       | Kylacoin RPC password          | -                                          |
-| `KCN_RPC_PORT`       | Kylacoin RPC port              | 9766                                       |
-| `KCN_P2P_PORT`       | Kylacoin P2P port              | 9765                                       |
-| `LCN_RPC_USER`       | Lyncoin RPC username           | lyncoin_user                               |
-| `LCN_RPC_PASS`       | Lyncoin RPC password           | -                                          |
-| `LCN_RPC_PORT`       | Lyncoin RPC port               | 19332                                      |
-| `LCN_P2P_PORT`       | Lyncoin P2P port               | 19333                                      |
-| `LCN_WALLET_ADDRESS` | Lyncoin wallet address         | lc1q44hvy3fg7rka5k9c0waqdu8yw3q4cca6fnxlff |
-| `STRATUM_PORT`       | Stratum proxy port             | 54321                                      |
-| `PROXY_SIGNATURE`    | Custom coinbase signature      | /kcn-lcn-stratum-proxy/                    |
-| `USE_EASIER_TARGET`  | Enable easier target selection | true                                       |
-| `TESTNET`            | Use testnet                    | false                                      |
-| `VERBOSE`            | Enable verbose logging         | true                                       |
-| `SHOW_JOBS`          | Show job updates in logs       | true                                       |
+| Variable             | Description                                        | Default                   |
+| -------------------- | -------------------------------------------------- | ------------------------- |
+| `KCN_RPC_USER`       | Kylacoin RPC username                              | kylacoin_user             |
+| `KCN_RPC_PASS`       | Kylacoin RPC password                              | -                         |
+| `KCN_RPC_PORT`       | Kylacoin RPC port                                  | 5110                      |
+| `KCN_P2P_PORT`       | Kylacoin P2P port                                  | 5111                      |
+| `LCN_RPC_USER`       | Lyncoin RPC username                               | lyncoin_user              |
+| `LCN_RPC_PASS`       | Lyncoin RPC password                               | -                         |
+| `LCN_RPC_PORT`       | Lyncoin RPC port                                   | 5053                      |
+| `LCN_P2P_PORT`       | Lyncoin P2P port                                   | 5054                      |
+| `LCN_WALLET_ADDRESS` | Lyncoin wallet address (blank = primary-only mode) | (blank - disables AuxPoW) |
+| `STRATUM_PORT`       | Stratum proxy port                                 | 54321                     |
+| `PROXY_SIGNATURE`    | Custom coinbase signature                          | /kcn-lcn-stratum-proxy/   |
+| `USE_EASIER_TARGET`  | Enable easier target selection                     | true                      |
+| `TESTNET`            | Use testnet                                        | false                     |
+| `VERBOSE`            | Enable verbose logging                             | true                      |
+| `SHOW_JOBS`          | Show job updates in logs                           | true                      |
 
 ## Binary Setup
 
@@ -121,11 +121,11 @@ binaries/lyncoin/lyncoind: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), 
 ### Services
 
 - **kylacoin**: Kylacoin daemon (parent chain)
-  - RPC: `localhost:9766`
-  - P2P: `localhost:9765`
+  - RPC: `localhost:5110`
+  - P2P: `localhost:5111`
 - **lyncoin**: Lyncoin daemon (auxiliary chain)
-  - RPC: `localhost:19332`
-  - P2P: `localhost:19333`
+  - RPC: `localhost:5053`
+  - P2P: `localhost:5054`
 - **stratum-proxy**: Mining proxy
   - Stratum: `localhost:54321`
 
@@ -192,8 +192,8 @@ If you prefer to run the proxy directly with Python instead of using Docker:
 
 3. **Ensure your nodes are running**:
 
-   - Kylacoin node accessible via RPC (default: `localhost:9766`)
-   - Lyncoin node accessible via RPC (default: `localhost:19332`)
+   - Kylacoin node accessible via RPC (default: `localhost:5110`)
+   - Lyncoin node accessible via RPC (default: `localhost:5053`)
 
 4. **Run the proxy**:
 
@@ -206,11 +206,11 @@ If you prefer to run the proxy directly with Python instead of using Docker:
      --rpcuser=your_kcn_rpc_user \
      --rpcpass=your_kcn_rpc_password \
      --rpcip=127.0.0.1 \
-     --rpcport=9766 \
+     --rpcport=5110 \
      --aux-rpcuser=your_lcn_rpc_user \
      --aux-rpcpass=your_lcn_rpc_password \
      --aux-rpcip=127.0.0.1 \
-     --aux-rpcport=19332 \
+     --aux-rpcport=5053 \
      --aux-address=your_lyncoin_address \
      --use-easier-target \
      --verbose
@@ -357,7 +357,7 @@ Connect your miner to the stratum proxy:
 - **Username**: Your Kylacoin address (e.g., `KYourKylacoinAddress.worker1`)
 - **Password**: Any value
 
-The first address that connects becomes the payout address for Kylacoin rewards. Lyncoin rewards go to the configured `LCN_WALLET_ADDRESS`.
+The first address that connects becomes the payout address for Kylacoin rewards. If `LCN_WALLET_ADDRESS` is configured, Lyncoin rewards go to that address. If `LCN_WALLET_ADDRESS` is blank, only Kylacoin will be mined (primary-only mode).
 
 #### Sample Miner Commands
 
@@ -383,21 +383,199 @@ SRBMiner-MULTI.exe --algorithm flex --pool 192.168.1.100:54321 --wallet kc1qcyah
 
 **Note**: Replace `kc1qcyahs89p6lmjtecdnf7lxv9sv2aa9z9s8yrcs9` with your actual Kylacoin address.
 
+### Configuration Files
+
+The Docker containers automatically generate configuration files (`kylacoin.conf` and `lyncoin.conf`) from your `.env` file settings. This ensures that CLI tools work properly and all settings are consistent.
+
+**Generated configuration includes:**
+
+- RPC credentials and port settings
+- Network and connection parameters
+- Optimized settings for proxy operation
+
+### RPC Command Line Access
+
+You can interact with the blockchain nodes using RPC commands for monitoring, debugging, and management. Here are examples for both Docker and native setups:
+
+#### Docker Container RPC Commands
+
+**Kylacoin Commands:**
+
+```bash
+# Get mining information
+docker compose exec -it kylacoin kylacoin-cli -datadir="/home/kylacoin/.kylacoin" getmininginfo
+
+# Get blockchain info
+docker compose exec -it kylacoin kylacoin-cli -datadir="/home/kylacoin/.kylacoin" getblockchaininfo
+
+# Get wallet info
+docker compose exec -it kylacoin kylacoin-cli -datadir="/home/kylacoin/.kylacoin" getwalletinfo
+
+# Generate new address
+docker compose exec -it kylacoin kylacoin-cli -datadir="/home/kylacoin/.kylacoin" getnewaddress
+
+# Get network connections
+docker compose exec -it kylacoin kylacoin-cli -datadir="/home/kylacoin/.kylacoin" getconnectioncount
+
+# Alternative: Switch to kylacoin user first
+docker compose exec -it kylacoin /bin/bash
+su - kylacoin
+kylacoin-cli getmininginfo
+```
+
+**Lyncoin Commands:**
+
+```bash
+# Get mining information
+docker compose exec -it lyncoin lyncoin-cli -datadir="/home/lyncoin/.lyncoin" getmininginfo
+
+# Get blockchain info
+docker compose exec -it lyncoin lyncoin-cli -datadir="/home/lyncoin/.lyncoin" getblockchaininfo
+
+# Get wallet info
+docker compose exec -it lyncoin lyncoin-cli -datadir="/home/lyncoin/.lyncoin" getwalletinfo
+
+# Generate new address
+docker compose exec -it lyncoin lyncoin-cli -datadir="/home/lyncoin/.lyncoin" getnewaddress
+
+# Get AuxPoW information
+docker compose exec -it lyncoin lyncoin-cli -datadir="/home/lyncoin/.lyncoin" getauxblock
+
+# Alternative: Switch to lyncoin user first
+docker compose exec -it lyncoin /bin/bash
+su - lyncoin
+lyncoin-cli getmininginfo
+```
+
+#### Native Installation RPC Commands
+
+**Kylacoin Commands:**
+
+```bash
+# Using configuration file (recommended)
+kylacoin-cli getmininginfo
+
+# Using explicit RPC parameters
+kylacoin-cli -rpcuser=kylacoin_user -rpcpassword=kylacoin_password -rpcport=5110 getmininginfo
+```
+
+**Lyncoin Commands:**
+
+```bash
+# Using configuration file (recommended)
+lyncoin-cli getmininginfo
+
+# Using explicit RPC parameters
+lyncoin-cli -rpcuser=lyncoin_user -rpcpassword=lyncoin_password -rpcport=5053 getmininginfo
+```
+
+#### Useful RPC Commands for Mining
+
+**Monitor Mining Status:**
+
+```bash
+# Check if mining is active
+getmininginfo
+
+# Get current block height
+getblockcount
+
+# Get network hash rate
+getnetworkhashps
+
+# Check wallet balance
+getbalance
+
+# List recent transactions
+listtransactions
+```
+
+**Debug Network Issues:**
+
+```bash
+# Check peer connections
+getconnectioncount
+getpeerinfo
+
+# Check sync status
+getblockchaininfo
+
+# Verify daemon is responsive
+uptime
+```
+
+**AuxPoW Specific (Lyncoin):**
+
+```bash
+# Get auxiliary block for mining
+getauxblock
+
+# Submit auxiliary proof of work
+getauxblock <hash> <auxpow>
+```
+
+#### Troubleshooting RPC Access
+
+If you encounter RPC authentication errors:
+
+1. **Verify credentials match your `.env` file**
+2. **For Docker**: Use the `-datadir` parameter or switch to the correct user
+3. **For native**: Ensure the configuration file exists in the expected location
+4. **Check the daemon is running**: Look for the process in `docker compose ps` or system processes
+
 ### Wallet Setup
 
-1. **Generate Kylacoin Address**:
+**Important**: Before generating addresses, you must first create and load wallets for both nodes.
+
+1. **Create Kylacoin Wallet**:
 
    ```bash
-   docker compose exec kylacoin kylacoin-cli getnewaddress
+   # Create a new wallet named "default"
+   docker compose exec -it kylacoin kylacoin-cli -datadir="/home/kylacoin/.kylacoin" createwallet "default"
+
+   # Load the wallet and set it to load on startup
+   docker compose exec -it kylacoin kylacoin-cli -datadir="/home/kylacoin/.kylacoin" loadwallet "default" true
    ```
 
-2. **Generate Lyncoin Address**:
+2. **Create Lyncoin Wallet** (optional, for dual-chain mining):
 
    ```bash
-   docker compose exec lyncoin lyncoin-cli getnewaddress
+   # Create a new wallet named "default"
+   docker compose exec -it lyncoin lyncoin-cli -datadir="/home/lyncoin/.lyncoin" createwallet "default"
+
+   # Load the wallet and set it to load on startup
+   docker compose exec -it lyncoin lyncoin-cli -datadir="/home/lyncoin/.lyncoin" loadwallet "default" true
    ```
 
-3. **Update .env file** with your addresses
+3. **Generate Kylacoin Address**:
+
+   ```bash
+   docker compose exec -it kylacoin kylacoin-cli -datadir="/home/kylacoin/.kylacoin" getnewaddress
+   ```
+
+4. **Generate Lyncoin Address** (optional, for dual-chain mining):
+
+   ```bash
+   docker compose exec -it lyncoin lyncoin-cli -datadir="/home/lyncoin/.lyncoin" getnewaddress
+   ```
+
+5. **Update .env file** with your addresses (optional - leave `LCN_WALLET_ADDRESS` blank for Kylacoin-only mining)
+
+### CLI Testing
+
+Test that CLI tools are working correctly:
+
+```bash
+# Linux/macOS
+./test-cli.sh
+
+# Windows
+test-cli.bat
+
+# Or manually test individual commands
+docker compose exec kylacoin kylacoin-cli -datadir="/home/kylacoin/.kylacoin" getblockchaininfo
+docker compose exec lyncoin lyncoin-cli -datadir="/home/lyncoin/.lyncoin" getblockchaininfo
+```
 
 ### Monitoring
 
@@ -405,20 +583,20 @@ Check blockchain sync status:
 
 ```bash
 # Kylacoin
-docker compose exec kylacoin kylacoin-cli getblockchaininfo
+docker compose exec kylacoin kylacoin-cli -datadir="/home/kylacoin/.kylacoin" getblockchaininfo
 
 # Lyncoin
-docker compose exec lyncoin lyncoin-cli getblockchaininfo
+docker compose exec lyncoin lyncoin-cli -datadir="/home/lyncoin/.lyncoin" getblockchaininfo
 ```
 
 Check mining info:
 
 ```bash
 # Kylacoin
-docker compose exec kylacoin kylacoin-cli getmininginfo
+docker compose exec kylacoin kylacoin-cli -datadir="/home/kylacoin/.kylacoin" getmininginfo
 
 # Lyncoin
-docker compose exec lyncoin lyncoin-cli getmininginfo
+docker compose exec lyncoin lyncoin-cli -datadir="/home/lyncoin/.lyncoin" getmininginfo
 ```
 
 ## Troubleshooting

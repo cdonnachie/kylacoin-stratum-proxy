@@ -670,9 +670,10 @@ class StratumSession(RPCSession):
 # ----------------------------
 # Aux job refresh
 # ----------------------------
-async def refresh_aux_job(state: TemplateState, session: ClientSession, aux_url: Optional[str], aux_address: str = 'lc1q44hvy3fg7rka5k9c0waqdu8yw3q4cca6fnxlff', force_update: bool = False):
+async def refresh_aux_job(state: TemplateState, session: ClientSession, aux_url: Optional[str], aux_address: str = '', force_update: bool = False):
     # Pull Lyncoin createauxblock and compute single-leaf root
-    if not aux_url:
+    # Skip AuxPoW if no aux_url or aux_address is blank/empty
+    if not aux_url or not aux_address or aux_address.strip() == '':
         state.aux_job = None
         state.aux_root = None
         state.mm_tree_size = 0
@@ -734,7 +735,7 @@ async def refresh_aux_job(state: TemplateState, session: ClientSession, aux_url:
 # State updater loop
 # ----------------------------
 
-async def stateUpdater(state: TemplateState, old_states, drop_after, verbose, node_url: str, aux_url: Optional[str], aux_address: str = 'lc1q44hvy3fg7rka5k9c0waqdu8yw3q4cca6fnxlff', use_easier_target: bool = False, proxy_signature: Optional[str] = None):
+async def stateUpdater(state: TemplateState, old_states, drop_after, verbose, node_url: str, aux_url: Optional[str], aux_address: str = '', use_easier_target: bool = False, proxy_signature: Optional[str] = None):
     if not state.pub_h160:
         return
     data = {'jsonrpc': '2.0', 'id': '0', 'method': 'getblocktemplate', 'params': [{"rules": ["segwit"]}]}
@@ -1059,7 +1060,7 @@ def main():
     parser.add_argument('--aux-rpcport', type=int, help='LCN node RPC port')
     parser.add_argument('--aux-rpcuser', default=os.getenv('LCN_RPC_USER'), help='LCN RPC username')
     parser.add_argument('--aux-rpcpass', default=os.getenv('LCN_RPC_PASS'), help='LCN RPC password')
-    parser.add_argument('--aux-address', default=os.getenv('LCN_WALLET_ADDRESS', 'lc1q44hvy3fg7rka5k9c0waqdu8yw3q4cca6fnxlff'), help='LCN address for createauxblock')
+    parser.add_argument('--aux-address', default=os.getenv('LCN_WALLET_ADDRESS', ''), help='LCN address for createauxblock (leave blank to disable AuxPoW mining)')
     parser.add_argument('--proxy-signature', help='custom proxy signature in coinbase (overrides PROXY_SIGNATURE env var)')
     parser.add_argument('--use-easier-target', action='store_true', default=os.getenv('USE_EASIER_TARGET', 'true').lower() == 'true', help='use easier target between KCN and LCN (may increase block finding rate)')
     parser.add_argument('-t', '--testnet', action='store_true', default=os.getenv('TESTNET', 'false').lower() == 'true', help='use testnet address version for miner address check')
@@ -1104,6 +1105,17 @@ def main():
     level = 'DEBUG' if args.verbose else 'INFO'
     coloredlogs.install(level=level, milliseconds=True)
     coloredlogs.install(logger=logger, level=level, milliseconds=True)
+
+    # Log mining mode
+    if aux_url and args.aux_address and args.aux_address.strip():
+        logger.info('AuxPoW mode: Mining Kylacoin (primary) + Lyncoin (auxiliary)')
+        logger.info(f'Lyncoin address: {args.aux_address}')
+    else:
+        logger.info('Primary mode: Mining Kylacoin only (AuxPoW disabled)')
+        if not aux_url:
+            logger.info('Reason: Lyncoin RPC not configured')
+        elif not args.aux_address or not args.aux_address.strip():
+            logger.info('Reason: Lyncoin address not provided')
 
     if not os.path.exists('./submit_history'):
         os.mkdir('./submit_history')

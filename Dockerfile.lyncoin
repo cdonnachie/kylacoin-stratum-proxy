@@ -24,21 +24,26 @@ RUN useradd -r -m -s /bin/bash lyncoin && \
     mkdir -p /home/lyncoin/.lyncoin && \
     chown -R lyncoin:lyncoin /home/lyncoin/.lyncoin
 
-# Copy binaries
+# Copy binaries, entrypoint, and health check script
 COPY binaries/lyncoin/* /opt/lyncoin/bin/
+COPY entrypoint-lyncoin.sh /usr/local/bin/entrypoint.sh
+COPY health-check-lyncoin.sh /usr/local/bin/health-check.sh
 RUN chmod +x /opt/lyncoin/bin/* && \
+    chmod +x /usr/local/bin/entrypoint.sh && \
+    chmod +x /usr/local/bin/health-check.sh && \
     ln -s /opt/lyncoin/bin/lyncoind /usr/local/bin/lyncoind && \
     ln -s /opt/lyncoin/bin/lyncoin-cli /usr/local/bin/lyncoin-cli
 
 # Verify binary compatibility
 RUN ldd /opt/lyncoin/bin/lyncoind > /dev/null || echo "Binary verified"
 
-# Switch to lyncoin user
-USER lyncoin
+# Set working directory but keep running as root for entrypoint
+# (entrypoint will switch to lyncoin user after fixing permissions)
 WORKDIR /home/lyncoin
 
 # Expose ports
 EXPOSE 19332 19333
 
-# Default command
-CMD ["lyncoind"]
+# Use entrypoint script to generate config and start daemon
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD []

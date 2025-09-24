@@ -24,21 +24,26 @@ RUN useradd -r -m -s /bin/bash kylacoin && \
     mkdir -p /home/kylacoin/.kylacoin && \
     chown -R kylacoin:kylacoin /home/kylacoin/.kylacoin
 
-# Copy binaries
+# Copy binaries, entrypoint, and health check script
 COPY binaries/kylacoin/* /opt/kylacoin/bin/
+COPY entrypoint-kylacoin.sh /usr/local/bin/entrypoint.sh
+COPY health-check-kylacoin.sh /usr/local/bin/health-check.sh
 RUN chmod +x /opt/kylacoin/bin/* && \
+    chmod +x /usr/local/bin/entrypoint.sh && \
+    chmod +x /usr/local/bin/health-check.sh && \
     ln -s /opt/kylacoin/bin/kylacoind /usr/local/bin/kylacoind && \
     ln -s /opt/kylacoin/bin/kylacoin-cli /usr/local/bin/kylacoin-cli
 
 # Verify binary compatibility
 RUN ldd /opt/kylacoin/bin/kylacoind > /dev/null || echo "Binary verified"
 
-# Switch to kylacoin user
-USER kylacoin
+# Set working directory but keep running as root for entrypoint
+# (entrypoint will switch to kylacoin user after fixing permissions)
 WORKDIR /home/kylacoin
 
 # Expose ports
 EXPOSE 9765 9766
 
-# Default command
-CMD ["kylacoind"]
+# Use entrypoint script to generate config and start daemon
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD []
