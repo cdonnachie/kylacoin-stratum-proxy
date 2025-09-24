@@ -355,26 +355,6 @@ SRBMiner-MULTI.exe --algorithm flex --pool localhost:54321 --wallet kc1qcyahs89p
 SRBMiner-MULTI.exe --algorithm flex --pool 192.168.1.100:54321 --wallet kc1qcyahs89p6lmjtecdnf7lxv9sv2aa9z9s8yrcs9.worker1
 ```
 
-**T-Rex Miner:**
-
-```bash
-# For localhost testing
-t-rex.exe -a flex -o stratum+tcp://localhost:54321 -u kc1qcyahs89p6lmjtecdnf7lxv9sv2aa9z9s8yrcs9 -p x
-
-# For remote server
-t-rex.exe -a flex -o stratum+tcp://192.168.1.100:54321 -u kc1qcyahs89p6lmjtecdnf7lxv9sv2aa9z9s8yrcs9.rig1 -p x
-```
-
-**lolMiner:**
-
-```bash
-# For localhost testing
-lolMiner.exe --algo FLEX --pool localhost:54321 --user kc1qcyahs89p6lmjtecdnf7lxv9sv2aa9z9s8yrcs9
-
-# For remote server
-lolMiner.exe --algo FLEX --pool 192.168.1.100:54321 --user kc1qcyahs89p6lmjtecdnf7lxv9sv2aa9z9s8yrcs9.worker1
-```
-
 **HiveOS Configuration:**
 
 ```bash
