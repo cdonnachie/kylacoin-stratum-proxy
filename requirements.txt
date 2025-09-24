@@ -2,4 +2,3 @@ aiohttp>=3.9.5
 aiorpcX>=0.23.0
 coloredlogs>=15.0.1
 base58>=2.1.1
-safe-pysha3>=1.0.5

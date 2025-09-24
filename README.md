@@ -4,10 +4,12 @@ A Docker Compose setup for running a stratum proxy that enables mining Kylacoin 
 
 ## Quick Start
 
-1. **Place the binaries**:
+1. **Place the Linux binaries**:
 
-   - Copy `kylacoind` and `kylacoin-cli` to `binaries/kylacoin/`
-   - Copy `lyncoind` and `lyncoin-cli` to `binaries/lyncoin/`
+   - Copy **Linux x86_64** `kylacoind` and `kylacoin-cli` to `binaries/kylacoin/`
+   - Copy **Linux x86_64** `lyncoind` and `lyncoin-cli` to `binaries/lyncoin/`
+
+   ⚠️ **Important**: Use Linux binaries only (not Windows .exe or macOS binaries)
 
 2. **Update the environment file**:
 
@@ -81,10 +83,13 @@ Place the following files in their respective directories:
 
 ### Binary Requirements
 
-- **Linux x86_64** compatible (Ubuntu 24.04 base)
-- **glibc 2.36+** support (Ubuntu 24.04 provides glibc 2.39)
-- **Executable permissions** (set automatically by Docker)
-- **Required dependencies** included or statically linked
+⚠️ **Critical**: Only Linux binaries work with Docker containers!
+
+- **Platform**: Linux x86_64 ELF binaries (NOT Windows .exe or macOS binaries)
+- **Base System**: Ubuntu 24.04 compatible
+- **glibc Version**: 2.36+ support (Ubuntu 24.04 provides glibc 2.39)
+- **Executable permissions**: Set automatically by Docker
+- **Dependencies**: Must be included or statically linked
 
 ### Getting Binaries
 
@@ -99,8 +104,19 @@ Check if binaries are correct format:
 ```bash
 file binaries/kylacoin/kylacoind
 file binaries/lyncoin/lyncoind
-# Should show: ELF 64-bit LSB executable, x86-64
 ```
+
+**Expected Output:**
+
+```
+binaries/kylacoin/kylacoind: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 3.2.0, stripped
+binaries/lyncoin/lyncoind: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 3.2.0, stripped
+```
+
+❌ **Wrong formats** (will NOT work):
+
+- Windows: `PE32+ executable (console) x86-64, for MS Windows`
+- macOS: `Mach-O 64-bit executable x86_64`
 
 ### Services
 

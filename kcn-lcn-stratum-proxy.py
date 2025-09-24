@@ -4,10 +4,8 @@ from copy import deepcopy
 import json
 import time
 import os
-import hashlib
 
 import base58
-import sha3
 
 import logging
 import coloredlogs
@@ -399,6 +397,7 @@ class StratumSession(RPCSession):
             'mining.subscribe': self.handle_subscribe,
             'mining.authorize': self.handle_authorize,
             'mining.submit': self.handle_submit,
+            'mining.configure': self.handle_configure,
             'eth_submitHashrate': self.handle_eth_submitHashrate,
         }
 
@@ -424,7 +423,22 @@ class StratumSession(RPCSession):
         if self not in self._state.all_sessions:
             self._state.new_sessions.add(self)
         self._state.bits_counter += 1
-        return [None, self._state.bits_counter.to_bytes(2, 'big').hex()]
+        
+        # Generate subscription ID
+        subscription_id = f"subscription_{self._state.bits_counter}"
+        
+        # Return proper stratum subscription format with subscription IDs
+        extranonce1 = self._state.bits_counter.to_bytes(2, 'big').hex()
+        extranonce2_size = 2
+        
+        return [
+            [
+                ["mining.set_difficulty", subscription_id],
+                ["mining.notify", subscription_id]
+            ],
+            extranonce1,
+            extranonce2_size
+        ]
 
     async def handle_authorize(self, username: str, password: str):
         # First address that connects becomes payout address
@@ -479,6 +493,15 @@ class StratumSession(RPCSession):
             self._state.pub_h160 = pub_h160
             
         return True
+
+    async def handle_configure(self, extensions):
+        """Handle mining.configure - miner capability negotiation"""
+        if self._verbose:
+            self.logger.debug('Miner configure request: %s', extensions)
+        
+        # Return empty result - we don't support any special extensions yet
+        # But this prevents miners from erroring on unsupported method
+        return {}
 
     async def handle_submit(self, worker: str, job_id: str, extranonce2_hex: str, ntime_hex: str, nonce_hex: str):
         if self._verbose:
@@ -710,6 +733,7 @@ async def refresh_aux_job(state: TemplateState, session: ClientSession, aux_url:
 # ----------------------------
 # State updater loop
 # ----------------------------
+
 async def stateUpdater(state: TemplateState, old_states, drop_after, verbose, node_url: str, aux_url: Optional[str], aux_address: str = 'lc1q44hvy3fg7rka5k9c0waqdu8yw3q4cca6fnxlff', use_easier_target: bool = False, proxy_signature: Optional[str] = None):
     if not state.pub_h160:
         return
@@ -975,7 +999,11 @@ async def stateUpdater(state: TemplateState, old_states, drop_after, verbose, no
                         state.logger.info('New %s job diff %s height %d (using %s target)', state.tag, diff_display, state.height, state.target_source)
 
                     for session in state.all_sessions:
-                        await session.send_notification('mining.set_target', (final_target_hex,))
+                        # Calculate difficulty for miners that expect it
+                        difficulty = get_target_difficulty(final_target_hex)
+                        if verbose:
+                            state.logger.debug(f'Updating difficulty {difficulty} (target: {final_target_hex}) for existing session')
+                        await session.send_notification('mining.set_difficulty', (difficulty,))
 
                 # Prepare job parameters in correct stratum format (if coinbase is ready)
                 job_params = None
@@ -1000,7 +1028,11 @@ async def stateUpdater(state: TemplateState, old_states, drop_after, verbose, no
                 # Send notifications to new sessions
                 for session in state.new_sessions:
                     state.all_sessions.add(session)
-                    await session.send_notification('mining.set_target', (final_target_hex,))
+                    # Calculate difficulty for miners that expect it
+                    difficulty = get_target_difficulty(final_target_hex)
+                    if verbose:
+                        state.logger.debug(f'Sending difficulty {difficulty} (target: {final_target_hex}) to new session')
+                    await session.send_notification('mining.set_difficulty', (difficulty,))
                     if job_params:  # Only send if coinbase is ready
                         await session.send_notification('mining.notify', job_params)
                 state.new_sessions.clear()
