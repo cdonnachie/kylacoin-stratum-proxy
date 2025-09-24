@@ -1,0 +1,134 @@
+services:
+  kylacoin:
+    build:
+      context: .
+      dockerfile: Dockerfile.kylacoin
+    container_name: kylacoin-node
+    restart: unless-stopped
+    ports:
+      - "${KCN_RPC_PORT:-9766}:${KCN_RPC_PORT:-9766}"
+      - "${KCN_P2P_PORT:-9765}:${KCN_P2P_PORT:-9765}"
+    volumes:
+      - kylacoin-data:/home/kylacoin/.kylacoin
+    environment:
+      - KCN_RPC_USER=${KCN_RPC_USER}
+      - KCN_RPC_PASS=${KCN_RPC_PASS}
+    command: >
+      kylacoind
+      -rpcuser=${KCN_RPC_USER}
+      -rpcpassword=${KCN_RPC_PASS}
+      -rpcallowip=0.0.0.0/0
+      -rpcbind=0.0.0.0:${KCN_RPC_PORT:-9766}
+      -server=1
+      -listen=1
+      -daemon=0
+      -printtoconsole=1
+    networks:
+      - crypto-net
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "kylacoin-cli",
+          "-rpcuser=${KCN_RPC_USER}",
+          "-rpcpassword=${KCN_RPC_PASS}",
+          "getblockchaininfo",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  lyncoin:
+    build:
+      context: .
+      dockerfile: Dockerfile.lyncoin
+    container_name: lyncoin-node
+    restart: unless-stopped
+    ports:
+      - "${LCN_RPC_PORT:-19332}:${LCN_RPC_PORT:-19332}"
+      - "${LCN_P2P_PORT:-19333}:${LCN_P2P_PORT:-19333}"
+    volumes:
+      - lyncoin-data:/home/lyncoin/.lyncoin
+    environment:
+      - LCN_RPC_USER=${LCN_RPC_USER}
+      - LCN_RPC_PASS=${LCN_RPC_PASS}
+    command: >
+      lyncoind
+      -rpcuser=${LCN_RPC_USER}
+      -rpcpassword=${LCN_RPC_PASS}
+      -rpcallowip=0.0.0.0/0
+      -rpcbind=0.0.0.0:${LCN_RPC_PORT:-19332}
+      -server=1
+      -listen=1
+      -daemon=0
+      -printtoconsole=1
+    networks:
+      - crypto-net
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "lyncoin-cli",
+          "-rpcuser=${LCN_RPC_USER}",
+          "-rpcpassword=${LCN_RPC_PASS}",
+          "getblockchaininfo",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  stratum-proxy:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kcn-lcn-proxy
+    restart: unless-stopped
+    ports:
+      - "${STRATUM_PORT:-54321}:${STRATUM_PORT:-54321}"
+    depends_on:
+      kylacoin:
+        condition: service_healthy
+      lyncoin:
+        condition: service_healthy
+    environment:
+      - KCN_RPC_HOST=kylacoin
+      - KCN_RPC_PORT=${KCN_RPC_PORT:-9766}
+      - KCN_RPC_USER=${KCN_RPC_USER}
+      - KCN_RPC_PASS=${KCN_RPC_PASS}
+      - LCN_RPC_HOST=lyncoin
+      - LCN_RPC_PORT=${LCN_RPC_PORT:-19332}
+      - LCN_RPC_USER=${LCN_RPC_USER}
+      - LCN_RPC_PASS=${LCN_RPC_PASS}
+      - LCN_WALLET_ADDRESS=${LCN_WALLET_ADDRESS}
+      - STRATUM_PORT=${STRATUM_PORT:-54321}
+      - TESTNET=${TESTNET:-false}
+      - VERBOSE=${VERBOSE:-false}
+      - SHOW_JOBS=${SHOW_JOBS:-false}
+      - USE_EASIER_TARGET=${USE_EASIER_TARGET:-false}
+      - PROXY_SIGNATURE=${PROXY_SIGNATURE:-/kyla-stratum-proxy/}
+    command: ["/app/entrypoint.sh"]
+    networks:
+      - crypto-net
+    volumes:
+      - ./submit_history:/app/submit_history
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import socket; s=socket.socket(); s.connect(('localhost', ${STRATUM_PORT:-54321})); s.close()",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  crypto-net:
+    driver: bridge
+
+volumes:
+  kylacoin-data:
+    driver: local
+  lyncoin-data:
+    driver: local

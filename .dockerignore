@@ -1,0 +1,59 @@
+# Docker and build files
+docker-compose.yml
+docker-compose.override.yml
+.dockerignore
+
+# Don't ignore Dockerfiles and binaries - they're needed for builds
+!Dockerfile*
+!binaries/
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Logs and history
+*.log
+submit_history/
+logs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Blockchain data
+kylacoin-data/
+lyncoin-data/
+
+# Backup files
+*.bak
+*.backup
+*.old

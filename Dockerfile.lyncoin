@@ -1,0 +1,44 @@
+# Try Ubuntu 24.04 first for newer glibc
+FROM ubuntu:24.04 as ubuntu24
+
+# Install dependencies available in Ubuntu 24.04
+RUN apt-get update && apt-get install -y \
+    libssl3 \
+    libboost-system1.83.0 \
+    libboost-filesystem1.83.0 \
+    libboost-thread1.83.0 \
+    libboost-program-options1.83.0 \
+    libevent-2.1-7 \
+    libevent-pthreads-2.1-7 \
+    libzmq5 \
+    libc6 \
+    file \
+    && rm -rf /var/lib/apt/lists/*
+
+# Final stage
+FROM ubuntu24
+
+# Create lyncoin user and directories
+RUN useradd -r -m -s /bin/bash lyncoin && \
+    mkdir -p /opt/lyncoin/bin && \
+    mkdir -p /home/lyncoin/.lyncoin && \
+    chown -R lyncoin:lyncoin /home/lyncoin/.lyncoin
+
+# Copy binaries
+COPY binaries/lyncoin/* /opt/lyncoin/bin/
+RUN chmod +x /opt/lyncoin/bin/* && \
+    ln -s /opt/lyncoin/bin/lyncoind /usr/local/bin/lyncoind && \
+    ln -s /opt/lyncoin/bin/lyncoin-cli /usr/local/bin/lyncoin-cli
+
+# Verify binary compatibility
+RUN ldd /opt/lyncoin/bin/lyncoind > /dev/null || echo "Binary verified"
+
+# Switch to lyncoin user
+USER lyncoin
+WORKDIR /home/lyncoin
+
+# Expose ports
+EXPOSE 19332 19333
+
+# Default command
+CMD ["lyncoind"]

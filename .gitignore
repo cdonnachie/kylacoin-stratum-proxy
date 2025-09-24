@@ -1,0 +1,80 @@
+# Environment files with sensitive data
+.env
+.env.local
+.env.production
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Logs and mining history
+*.log
+submit_history/
+logs/
+
+# Docker volumes data
+kylacoin-data/
+lyncoin-data/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Configuration backups
+*.conf.bak
+*.conf.old
+
+# Cryptocurrency binaries (large files, should be downloaded separately)
+binaries/kylacoin/kylacoind
+binaries/kylacoin/kylacoin-cli
+binaries/lyncoin/lyncoind
+binaries/lyncoin/lyncoin-cli
+binaries/kylacoin/*.tar.gz
+binaries/lyncoin/*.tar.gz
+binaries/kylacoin/*.zip
+binaries/lyncoin/*.zip
+
+# Blockchain data (if accidentally created locally)
+.kylacoin/
+.lyncoin/
+blockchain_data/
+
+# Test files
+test_*.txt
+debug_*.txt
+*.test.log
+
+# Temporary files
+tmp/
+temp/
+*.tmp
