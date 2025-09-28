@@ -8,7 +8,7 @@ ARGS=(
     "--ip=0.0.0.0"
     "--port=${STRATUM_PORT:-54321}"
     "--rpcip=kylacoin"
-    "--rpcport=${KCN_RPC_PORT:-9766}"
+    "--rpcport=${KCN_RPC_PORT:-5110}"
     "--rpcuser=${KCN_RPC_USER}"
     "--rpcpass=${KCN_RPC_PASS}"
     "--aux-rpcip=lyncoin"
@@ -38,6 +38,10 @@ fi
 
 if [ "${USE_EASIER_TARGET,,}" = "true" ]; then
     ARGS+=("--use-easier-target")
+fi
+
+if [ "${DEBUG_SHARES,,}" = "true" ]; then
+    ARGS+=("--debug-shares")
 fi
 
 echo "Starting with arguments: ${ARGS[@]}"

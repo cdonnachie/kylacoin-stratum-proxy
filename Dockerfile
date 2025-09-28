@@ -1,9 +1,14 @@
-FROM python:3.11-slim
+FROM ubuntu:22.04
 
-# Install required system packages
+# Install Python and required packages
 RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-pip \
+    python3-dev \
     gcc \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -sf /usr/bin/python3 /usr/bin/python \
+    && ln -sf /usr/bin/pip3 /usr/bin/pip
 
 # Set working directory
 WORKDIR /app
@@ -11,6 +16,10 @@ WORKDIR /app
 # Copy requirements and install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy and install wheel file (if present)
+# COPY *.whl ./
+# RUN pip install --no-cache-dir *.whl || echo "No wheel files found, skipping..."
 
 # Copy application code
 COPY kcn-lcn-stratum-proxy.py .

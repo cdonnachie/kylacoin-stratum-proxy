@@ -81,6 +81,9 @@ services:
       - VERBOSE=${VERBOSE:-false}
       - SHOW_JOBS=${SHOW_JOBS:-false}
       - USE_EASIER_TARGET=${USE_EASIER_TARGET:-false}
+      - DEBUG_SHARES=${DEBUG_SHARES:-false}
+      - SKIP_FLEX_VALIDATION=${SKIP_FLEX_VALIDATION:-false}
+      - SHARE_DIFFICULTY_MULTIPLIER=${SHARE_DIFFICULTY_MULTIPLIER:-1.0}
       - PROXY_SIGNATURE=${PROXY_SIGNATURE:-/kyla-stratum-proxy/}
     command: ["/app/entrypoint.sh"]
     networks:
