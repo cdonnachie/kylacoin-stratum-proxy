@@ -34,14 +34,14 @@ if not exist .env (
         echo # Kylacoin Configuration
         echo KCN_RPC_USER=kylacoin_user
         echo KCN_RPC_PASS=%KCN_PASS%
-        echo KCN_RPC_PORT=9766
-        echo KCN_P2P_PORT=9765
+        echo KCN_RPC_PORT=5110
+        echo KCN_P2P_PORT=5111
         echo.
         echo # Lyncoin Configuration
         echo LCN_RPC_USER=lyncoin_user
         echo LCN_RPC_PASS=%LCN_PASS%
-        echo LCN_RPC_PORT=19332
-        echo LCN_P2P_PORT=19333
+        echo LCN_RPC_PORT=5053
+        echo LCN_P2P_PORT=5054
         echo.
         echo # Wallet Addresses ^(UPDATE THESE WITH YOUR ACTUAL ADDRESSES^)
         echo # Kylacoin address ^(optional - first miner connection sets this^)

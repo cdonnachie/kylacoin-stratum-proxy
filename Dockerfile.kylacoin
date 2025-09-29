@@ -42,7 +42,7 @@ RUN ldd /opt/kylacoin/bin/kylacoind > /dev/null || echo "Binary verified"
 WORKDIR /home/kylacoin
 
 # Expose ports
-EXPOSE 9765 9766
+EXPOSE 5110 5111
 
 # Use entrypoint script to generate config and start daemon
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

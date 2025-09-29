@@ -4,7 +4,7 @@
 # Handles conditional argument passing based on environment variables
 
 ARGS=(
-    "python" "kcn-lcn-stratum-proxy.py"
+    "python" "-m" "kcn_proxy.main"
     "--ip=0.0.0.0"
     "--port=${STRATUM_PORT:-54321}"
     "--rpcip=kylacoin"

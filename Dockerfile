@@ -17,12 +17,8 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy and install wheel file (if present)
-# COPY *.whl ./
-# RUN pip install --no-cache-dir *.whl || echo "No wheel files found, skipping..."
-
 # Copy application code
-COPY kcn-lcn-stratum-proxy.py .
+COPY kcn_proxy/ ./kcn_proxy/
 COPY entrypoint.sh .
 
 # Make entrypoint script executable
