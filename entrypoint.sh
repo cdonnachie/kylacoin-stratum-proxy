@@ -44,5 +44,18 @@ if [ "${DEBUG_SHARES,,}" = "true" ]; then
     ARGS+=("--debug-shares")
 fi
 
+# ZMQ arguments
+if [ "${ENABLE_ZMQ,,}" = "true" ]; then
+    ARGS+=("--enable-zmq")
+    if [ -n "${KCN_ZMQ_ENDPOINT}" ]; then
+        ARGS+=("--kcn-zmq-endpoint=${KCN_ZMQ_ENDPOINT}")
+    fi
+    if [ -n "${LCN_ZMQ_ENDPOINT}" ]; then
+        ARGS+=("--lcn-zmq-endpoint=${LCN_ZMQ_ENDPOINT}")
+    fi
+elif [ "${ENABLE_ZMQ,,}" = "false" ]; then
+    ARGS+=("--disable-zmq")
+fi
+
 echo "Starting with arguments: ${ARGS[@]}"
 exec "${ARGS[@]}"

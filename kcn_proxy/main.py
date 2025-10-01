@@ -22,12 +22,26 @@ def main():
     p.add_argument("-j", "--jobs", action="store_true")
     p.add_argument("-v", "--verbose", "--debug", action="store_true", dest="verbose")
     p.add_argument("--debug-shares", action="store_true")
+    # ZMQ options
+    p.add_argument("--enable-zmq", action="store_true", help="Enable ZMQ notifications")
+    p.add_argument(
+        "--disable-zmq", action="store_true", help="Disable ZMQ notifications"
+    )
+    p.add_argument("--kcn-zmq-endpoint", default=None, help="KCN ZMQ endpoint")
+    p.add_argument("--lcn-zmq-endpoint", default=None, help="LCN ZMQ endpoint")
     args = p.parse_args()
 
     s = Settings()
     for k, v in vars(args).items():
         if v is not None:
-            setattr(s, k.replace("-", "_"), v)
+            # Handle ZMQ enable/disable logic
+            if k == "enable_zmq" and v:
+                setattr(s, "enable_zmq", True)
+            elif k == "disable_zmq" and v:
+                setattr(s, "enable_zmq", False)
+            else:
+                setattr(s, k.replace("-", "_"), v)
+
     if not s.rpcuser or not s.rpcpass:
         raise SystemExit(
             "KCN RPC credentials are required (--rpcuser/--rpcpass or env vars)."

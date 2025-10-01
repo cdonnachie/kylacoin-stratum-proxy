@@ -22,6 +22,10 @@ bind=0.0.0.0:${KCN_P2P_PORT:-5111}
 # P2P port
 port=${KCN_P2P_PORT:-5111}
 
+# ZMQ Configuration for block notifications
+zmqpubhashblock=tcp://0.0.0.0:${KCN_ZMQ_PORT:-28332}
+zmqpubrawblock=tcp://0.0.0.0:${KCN_ZMQ_RAW_PORT:-28333}
+
 # Additional settings for better operation
 maxconnections=50
 timeout=30000

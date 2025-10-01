@@ -16,6 +16,7 @@ class AuxJob:
     aux_hash: str
     target: Optional[str] = None
     chain_id: Optional[int] = None
+    height: Optional[int] = None
 
 
 def process_aux_target(target_hex: str) -> str:
@@ -110,8 +111,11 @@ async def refresh_aux_job(
         aux_hash=r["hash"],
         target=processed_target,
         chain_id=r.get("chainid"),
+        height=r.get("height"),
     )
-    state.aux_root = dsha256(bytes.fromhex(state.aux_job.aux_hash)[::-1])
+    # For a single auxiliary chain, aux_root IS the aux_hash (reversed to LE)
+    # Do NOT hash it again - just reverse the bytes
+    state.aux_root = bytes.fromhex(state.aux_job.aux_hash)[::-1]
     state.mm_tree_size = 1
     state.mm_nonce = now & 0xFFFFFFFF
     state.aux_last_update = now

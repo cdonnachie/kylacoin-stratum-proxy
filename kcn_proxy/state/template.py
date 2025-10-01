@@ -40,6 +40,7 @@ class TemplateState:
     coinbase1_nowit: Optional[bytes] = None
     coinbase2_nowit: Optional[bytes] = None
     kcn_original_target: Optional[str] = None
+    advertised_diff: Optional[float] = None
     # Aux backoff / health
     aux_backoff_secs: int = 0
     aux_next_try_at: int = 0

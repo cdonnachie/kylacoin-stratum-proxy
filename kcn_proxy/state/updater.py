@@ -1,19 +1,17 @@
 import time, os, base58
-from copy import deepcopy
 from aiohttp import ClientSession
 from ..rpc import kcn as rpc_kcn
 from ..consensus.merkle import merkle_root_from_txids_le, merkle_branch_for_index0
 from ..consensus.coinbase import build_coinbase
 from ..consensus.targets import (
-    normalize_be_hex,
-    bits_to_target,
-    target_to_diff_kcn,
     target_to_diff1,
 )
 from ..consensus.auxpow import refresh_aux_job
 
 
-async def update_once(state, settings, http: ClientSession):
+async def update_once(state, settings, http: ClientSession, force_update: bool = False):
+    ROLL_SECONDS = getattr(settings, "ntime_roll", 30)
+
     js = await rpc_kcn.getblocktemplate(http, settings.node_url)
     if js.get("error"):
         raise RuntimeError(js["error"])
@@ -27,12 +25,13 @@ async def update_once(state, settings, http: ClientSession):
     witness_hex = r["default_witness_commitment"]
     target_hex = r["target"]
 
+    # Refresh aux job - force if we have a new KCN block or explicit force
     await refresh_aux_job(
         state,
         http,
         settings.aux_url,
         settings.aux_address,
-        force_update=(state.height != height_int),
+        force_update=(state.height != height_int) or force_update,
     )
 
     ts = int(time.time())
@@ -69,11 +68,8 @@ async def update_once(state, settings, http: ClientSession):
             state.target_source = "LCN"
     state.target = final_target
 
-    if (
-        new_block
-        or new_witness
-        or (state.timestamp + 60 < ts if state.timestamp != -1 else True)
-    ):
+    roll_due = (state.timestamp == -1) or (state.timestamp + ROLL_SECONDS <= ts)
+    if new_block or new_witness or roll_due:
         mm_tag = b""
         if state.aux_root:
             mm_magic = bytes([0xFA, 0xBE, 0x6D, 0x6D])
@@ -93,18 +89,6 @@ async def update_once(state, settings, http: ClientSession):
         dev = r.get("coinbasedevreward")
         if dev and "scriptpubkey" in dev and dev.get("value", 0) > 0:
             outputs_extra.append((dev["value"], bytes.fromhex(dev["scriptpubkey"])))
-        comm_addr = r.get("CommunityAutonomousAddress")
-        comm_val = r.get("CommunityAutonomousValue", 0) or 0
-        if comm_addr and comm_val > 0:
-            try:
-                spk = (
-                    b"\x76\xa9\x14"
-                    + base58.b58decode_check(comm_addr)[1:]
-                    + b"\x88\xac"
-                )
-                outputs_extra.append((comm_val, spk))
-            except Exception:
-                state.logger.warning("Failed to parse community address")
 
         if not state.pub_h160:
             return False
@@ -123,6 +107,7 @@ async def update_once(state, settings, http: ClientSession):
             miner_value=coinbase_sats_int,
             outputs_extra=outputs_extra,
             witness_commitment=bytes.fromhex(witness_hex),
+            is_witness=getattr(state, "is_witness_address", False),
         )
         state.coinbase_tx = coinbase_wit
         state.coinbase_txid = coinbase_txid
@@ -144,12 +129,15 @@ async def update_once(state, settings, http: ClientSession):
 
         state.bits_le = bytes.fromhex(bits_hex)[::-1]
         state.timestamp = ts
-        state.job_counter += 1
+
+        # Use epoch timestamp as job ID
+        state.job_counter = ts
 
         # push difficulty + notify
         t_int = int(state.target, 16)
-        difficulty = target_to_diff1(t_int)
+        difficulty = target_to_diff1(t_int) / settings.share_difficulty_divisor
 
+        clean = not roll_due or (new_block or new_witness)
         job_params = [
             hex(state.job_counter)[2:],
             state.prevHash_le.hex(),
@@ -159,9 +147,9 @@ async def update_once(state, settings, http: ClientSession):
             version_int.to_bytes(4, "big").hex(),
             bits_hex,
             ts.to_bytes(4, "big").hex(),
-            True,
+            clean,
         ]
-        state.logger.info("Job_Params: %s", job_params)
+
         alive = set()
         for sess in list(state.all_sessions):
             try:
@@ -170,7 +158,6 @@ async def update_once(state, settings, http: ClientSession):
                 await sess.send_notification("mining.notify", job_params)
             except Exception as e:
                 state.logger.debug("Dropping dead session %r: %s", sess, e)
-                # best-effort cleanup of hashrate map
                 try:
                     wid = getattr(sess, "_worker_id", None)
                     if wid:
@@ -193,9 +180,12 @@ async def update_once(state, settings, http: ClientSession):
                 state.logger.debug("Failed initializing new session %r: %s", sess, e)
         state.new_sessions.clear()
 
+    return True
+
 
 async def state_updater_loop(state, settings):
     from aiohttp import ClientSession
+    import asyncio
 
     async with ClientSession() as http:
         while True:
@@ -203,9 +193,10 @@ async def state_updater_loop(state, settings):
                 await update_once(state, settings, http)
             except Exception as e:
                 state.logger.critical("State updater error: %s", e)
-                import asyncio
-
                 await asyncio.sleep(5)
-            import asyncio
 
-            await asyncio.sleep(0.1)
+            # Adjust sleep based on ZMQ availability
+            if getattr(settings, "enable_zmq", False):
+                await asyncio.sleep(10.0)
+            else:
+                await asyncio.sleep(0.1)

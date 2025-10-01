@@ -12,6 +12,7 @@ async def start_server(state, settings):
         settings.node_url,
         settings.aux_url,
         settings.debug_shares,
+        settings.share_difficulty_divisor,
     )
     server = await serve_rs(factory, settings.ip, settings.port, reuse_address=True)
     import logging
