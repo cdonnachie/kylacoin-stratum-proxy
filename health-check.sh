@@ -37,13 +37,13 @@ echo ""
 echo "🔗 Network Connectivity:"
 
 # Check if services can communicate
-if docker-compose exec -T stratum-proxy python -c "import socket; s=socket.socket(); s.settimeout(5); s.connect(('kylacoin', 9766)); s.close(); print('✅ Proxy -> Kylacoin RPC: OK')" 2>/dev/null; then
+if docker-compose exec -T stratum-proxy python -c "import socket; s=socket.socket(); s.settimeout(5); s.connect(('kylacoin', 5110)); s.close(); print('✅ Proxy -> Kylacoin RPC: OK')" 2>/dev/null; then
     :
 else
     echo "❌ Proxy -> Kylacoin RPC: Failed"
 fi
 
-if docker-compose exec -T stratum-proxy python -c "import socket; s=socket.socket(); s.settimeout(5); s.connect(('lyncoin', 19332)); s.close(); print('✅ Proxy -> Lyncoin RPC: OK')" 2>/dev/null; then
+if docker-compose exec -T stratum-proxy python -c "import socket; s=socket.socket(); s.settimeout(5); s.connect(('lyncoin', 5053); s.close(); print('✅ Proxy -> Lyncoin RPC: OK')" 2>/dev/null; then
     :
 else
     echo "❌ Proxy -> Lyncoin RPC: Failed"

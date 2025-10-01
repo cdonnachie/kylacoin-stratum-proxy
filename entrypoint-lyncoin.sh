@@ -21,6 +21,10 @@ printtoconsole=1
 # P2P port
 port=${LCN_P2P_PORT:-5054}
 
+# ZMQ Configuration for block notifications
+zmqpubhashblock=tcp://0.0.0.0:${LCN_ZMQ_PORT:-28433}
+zmqpubrawblock=tcp://0.0.0.0:${LCN_ZMQ_RAW_PORT:-28434}
+
 # Additional settings for better operation
 maxconnections=50
 timeout=30000

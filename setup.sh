@@ -34,14 +34,14 @@ if [ ! -f .env ]; then
 # Kylacoin Configuration
 KCN_RPC_USER=kylacoin_user
 KCN_RPC_PASS=${KCN_PASS}
-KCN_RPC_PORT=9766
-KCN_P2P_PORT=9765
+KCN_RPC_PORT=5110
+KCN_P2P_PORT=5111
 
 # Lyncoin Configuration
 LCN_RPC_USER=lyncoin_user
 LCN_RPC_PASS=${LCN_PASS}
-LCN_RPC_PORT=19332
-LCN_P2P_PORT=19333
+LCN_RPC_PORT=5053
+LCN_P2P_PORT=5054
 
 # Wallet Addresses (UPDATE THESE WITH YOUR ACTUAL ADDRESSES)
 # Kylacoin address (optional - first miner connection sets this)
