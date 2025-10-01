@@ -40,10 +40,13 @@ def build_coinbase(
     )
     coinbase_txin_end = b"\xff" * 4
 
-    # Build outputs - use P2PKH for all addresses for blockchain compatibility
-    # TODO: Investigate proper witness transaction support for bech32 addresses
-    # P2PKH: OP_DUP OP_HASH160 <20-byte-hash> OP_EQUALVERIFY OP_CHECKSIG
-    vout_to_miner = b"\x76\xa9\x14" + pub_h160 + b"\x88\xac"
+    # Build miner output - P2WPKH for bech32 or P2PKH for legacy addresses
+    if is_witness:
+        # P2WPKH (witness v0): OP_0 <20-byte-hash>
+        vout_to_miner = b"\x00\x14" + pub_h160
+    else:
+        # P2PKH: OP_DUP OP_HASH160 <20-byte-hash> OP_EQUALVERIFY OP_CHECKSIG
+        vout_to_miner = b"\x76\xa9\x14" + pub_h160 + b"\x88\xac"
 
     outputs = [
         miner_value.to_bytes(8, "little") + op_push(len(vout_to_miner)) + vout_to_miner
