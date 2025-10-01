@@ -30,8 +30,8 @@ Choose your setup method:
 3. **Start services**:
 
    ```bash
-   docker-compose up -d
-   docker-compose logs -f stratum-proxy  # Watch logs
+   docker compose up -d
+   docker compose logs -f stratum-proxy  # Watch logs
    ```
 
 4. **Connect miner**:
