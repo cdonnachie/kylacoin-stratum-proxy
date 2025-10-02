@@ -390,9 +390,20 @@ class StratumSession(RPCSession):
 
             submit_time = time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime())
 
+            # Track submission results for deferred notifications
+            kcn_accepted = False
+            kcn_height_for_notif = None
+            lcn_accepted = False
+            lcn_height_for_notif = None
+
             async with ClientSession() as http:
-                # Submit to KCN if it meets KCN target
-                if is_kcn_block:
+                # Define async submission functions for parallel execution
+                async def submit_kcn_block():
+                    nonlocal kcn_accepted, kcn_height_for_notif
+
+                    if not is_kcn_block:
+                        return
+
                     tx_count = len(state.externalTxs) + 1
                     if tx_count < 0xFD:
                         tx_count_hex = tx_count.to_bytes(1, "little").hex()
@@ -461,21 +472,19 @@ class StratumSession(RPCSession):
                         result = js.get("result")
                         self.logger.info("KCN submit result: %s", result)
 
-                        # Send notification on successful block submission
+                        # Track successful submission for deferred notification
                         if (
                             result is None or result == ""
                         ):  # submitblock returns null on success
-                            await self._notification_manager.notify_block_found(
-                                chain="KCN",
-                                height=state.height,
-                                block_hash=parent_block_hash_for_auxpow.hex(),
-                                worker=worker,
-                                difficulty=share_diff,
-                                miner_software=getattr(self, "_miner_software", None),
-                            )
+                            kcn_accepted = True
+                            kcn_height_for_notif = state.height
 
-                # Submit to LCN if it meets LCN target and aux is configured
-                if is_lcn_block and self._aux_url and aux_job_snapshot:
+                async def submit_lcn_block():
+                    nonlocal lcn_accepted, lcn_height_for_notif
+
+                    if not (is_lcn_block and self._aux_url and aux_job_snapshot):
+                        return
+
                     try:
                         from ..consensus.auxpow import AuxJob
 
@@ -630,17 +639,9 @@ class StratumSession(RPCSession):
                                     "✓ LCN BLOCK ACCEPTED! Result: %s", result
                                 )
 
-                                # Send notification on successful LCN block submission
-                                await self._notification_manager.notify_block_found(
-                                    chain="LCN",
-                                    height=lcn_height,
-                                    block_hash=parent_block_hash_for_auxpow.hex(),
-                                    worker=worker,
-                                    difficulty=share_diff,
-                                    miner_software=getattr(
-                                        self, "_miner_software", None
-                                    ),
-                                )
+                                # Track successful submission for deferred notification
+                                lcn_accepted = True
+                                lcn_height_for_notif = lcn_height
                             else:
                                 # Log detailed info about why the submission was rejected
                                 self.logger.warning(
@@ -667,6 +668,30 @@ class StratumSession(RPCSession):
                                 )
                     except Exception as e:
                         self.logger.error("LCN submit failed: %s", e)
+
+                # Submit both blocks in parallel
+                await asyncio.gather(submit_kcn_block(), submit_lcn_block())
+
+                # Send notifications after both submissions complete
+                if kcn_accepted:
+                    await self._notification_manager.notify_block_found(
+                        chain="KCN",
+                        height=kcn_height_for_notif,
+                        block_hash=parent_block_hash_for_auxpow.hex(),
+                        worker=worker,
+                        difficulty=share_diff,
+                        miner_software=getattr(self, "_miner_software", None),
+                    )
+
+                if lcn_accepted:
+                    await self._notification_manager.notify_block_found(
+                        chain="LCN",
+                        height=lcn_height_for_notif,
+                        block_hash=parent_block_hash_for_auxpow.hex(),
+                        worker=worker,
+                        difficulty=share_diff,
+                        miner_software=getattr(self, "_miner_software", None),
+                    )
         return True
 
     async def handle_eth_submitHashrate(self, hashrate: str, clientid: str):
