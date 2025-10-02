@@ -4,4 +4,5 @@ coloredlogs>=15.0.1
 base58>=2.1.1
 flexhash>=1.0.0
 pyzmq>=25.1.0
+python-dotenv>=1.0.0
 

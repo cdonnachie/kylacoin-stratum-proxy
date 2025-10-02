@@ -36,6 +36,7 @@ class StratumSession(RPCSession):
         aux_url: str | None,
         debug_shares: bool,
         share_difficulty_divisor: float,
+        notification_manager,
         transport,
     ):
         connection = JSONRPCConnection(JSONRPCv1)
@@ -46,6 +47,7 @@ class StratumSession(RPCSession):
         self._testnet = testnet
         self._verbose = verbose
         self._debug_shares = debug_shares
+        self._notification_manager = notification_manager
 
         # Validate and clamp share_difficulty_divisor
         # Min: 1.0 (shares equal to block difficulty)
@@ -93,6 +95,15 @@ class StratumSession(RPCSession):
         return await handler_invocation(handler, request)()
 
     async def connection_lost(self):
+        # Send disconnection notification
+        worker = getattr(self, "_worker_name", None)
+        if worker:
+            miner_software = getattr(self, "_miner_software", None)
+            await self._notification_manager.notify_miner_disconnected(
+                worker=worker,
+                miner_software=miner_software,
+            )
+
         # Cancel keepalive task
         if self._keepalive_task and not self._keepalive_task.done():
             self._keepalive_task.cancel()
@@ -147,6 +158,7 @@ class StratumSession(RPCSession):
 
     async def handle_authorize(self, username: str, password: str):
         self._worker_id = username
+        self._worker_name = username  # Store for disconnection notification
         address = username.split(".")[0]
         pub_h160 = None
         try:
@@ -187,6 +199,13 @@ class StratumSession(RPCSession):
         # Register this session now
         self._state.all_sessions.add(self)
         self._state.new_sessions.discard(self)
+
+        # Send connection notification
+        miner_software = getattr(self, "_miner_software", None)
+        await self._notification_manager.notify_miner_connected(
+            worker=username,
+            miner_software=miner_software,
+        )
 
         # Start keepalive task
         if not self._keepalive_task or self._keepalive_task.done():
@@ -439,7 +458,21 @@ class StratumSession(RPCSession):
                     if js.get("error"):
                         self.logger.error("KCN submit error: %s", js["error"])
                     else:
-                        self.logger.info("KCN submit result: %s", js.get("result"))
+                        result = js.get("result")
+                        self.logger.info("KCN submit result: %s", result)
+
+                        # Send notification on successful block submission
+                        if (
+                            result is None or result == ""
+                        ):  # submitblock returns null on success
+                            await self._notification_manager.notify_block_found(
+                                chain="KCN",
+                                height=state.height,
+                                block_hash=parent_block_hash_for_auxpow.hex(),
+                                worker=worker,
+                                difficulty=share_diff,
+                                miner_software=getattr(self, "_miner_software", None),
+                            )
 
                 # Submit to LCN if it meets LCN target and aux is configured
                 if is_lcn_block and self._aux_url and aux_job_snapshot:
@@ -595,6 +628,18 @@ class StratumSession(RPCSession):
                             if result:
                                 self.logger.info(
                                     "✓ LCN BLOCK ACCEPTED! Result: %s", result
+                                )
+
+                                # Send notification on successful LCN block submission
+                                await self._notification_manager.notify_block_found(
+                                    chain="LCN",
+                                    height=lcn_height,
+                                    block_hash=parent_block_hash_for_auxpow.hex(),
+                                    worker=worker,
+                                    difficulty=share_diff,
+                                    miner_software=getattr(
+                                        self, "_miner_software", None
+                                    ),
                                 )
                             else:
                                 # Log detailed info about why the submission was rejected

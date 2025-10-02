@@ -95,6 +95,9 @@ services:
       - ENABLE_ZMQ=${ENABLE_ZMQ:-true}
       - KCN_ZMQ_ENDPOINT=${KCN_ZMQ_ENDPOINT:-tcp://kylacoin:28332}
       - LCN_ZMQ_ENDPOINT=${LCN_ZMQ_ENDPOINT:-tcp://lyncoin:28433}
+      - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
     command: ["/app/entrypoint.sh"]
     networks:
       - crypto-net

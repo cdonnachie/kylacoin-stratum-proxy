@@ -1,5 +1,9 @@
 from dataclasses import dataclass
 import os
+from dotenv import load_dotenv
+
+# Load .env file if it exists
+load_dotenv()
 
 
 @dataclass
@@ -26,6 +30,9 @@ class Settings:
     kcn_zmq_endpoint: str = ""
     lcn_zmq_endpoint: str = ""
     share_difficulty_divisor: float = 1000.0
+    discord_webhook: str = ""
+    telegram_bot_token: str = ""
+    telegram_chat_id: str = ""
 
     def __post_init__(self):
         """Load settings from environment variables at instance creation time"""
@@ -57,6 +64,10 @@ class Settings:
         self.share_difficulty_divisor = float(
             os.getenv("SHARE_DIFFICULTY_DIVISOR", "1000.0")
         )
+        # Notification settings
+        self.discord_webhook = os.getenv("DISCORD_WEBHOOK_URL", "")
+        self.telegram_bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "")
+        self.telegram_chat_id = os.getenv("TELEGRAM_CHAT_ID", "")
 
     @property
     def node_url(self) -> str:
