@@ -1,6 +1,6 @@
 # Block Notification Setup Guide
 
-The KCN proxy now supports automatic notifications when blocks are mined via Discord and Telegram.
+The KCN proxy now supports automatic notifications for blocks mined and miner connections via Discord and Telegram.
 
 ## Features
 
@@ -124,8 +124,10 @@ After configuring your credentials:
    Discord notifications enabled
    Telegram notifications enabled
    ```
-3. Mine until you find a block
-4. Check your Discord channel or Telegram chat for the notification
+3. Connect a miner - you should receive a connection notification (🟢)
+4. Disconnect the miner - you should receive a disconnection notification (🔴)
+5. Mine until you find a block - you should receive a block find notification (🎉)
+6. Check your Discord channel or Telegram chat for all notifications
 
 ## Troubleshooting
 
