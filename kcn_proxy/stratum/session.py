@@ -46,6 +46,25 @@ class StratumSession(RPCSession):
         self._testnet = testnet
         self._verbose = verbose
         self._debug_shares = debug_shares
+
+        # Validate and clamp share_difficulty_divisor
+        # Min: 1.0 (shares equal to block difficulty)
+        # Max: 10000.0 (very easy shares, reasonable upper limit)
+        if share_difficulty_divisor < 1.0:
+            self.logger = logging.getLogger("Stratum-Proxy")
+            self.logger.warning(
+                "share_difficulty_divisor %.2f is below minimum 1.0 (block difficulty), clamping to 1.0",
+                share_difficulty_divisor,
+            )
+            share_difficulty_divisor = 1.0
+        elif share_difficulty_divisor > 10000.0:
+            self.logger = logging.getLogger("Stratum-Proxy")
+            self.logger.warning(
+                "share_difficulty_divisor %.2f exceeds maximum 10000.0, clamping to 10000.0",
+                share_difficulty_divisor,
+            )
+            share_difficulty_divisor = 10000.0
+
         self._share_difficulty_divisor = share_difficulty_divisor
         self._client_addr = transport._remote_address
         self._transport = transport
@@ -109,6 +128,14 @@ class StratumSession(RPCSession):
         subscription_id = f"subscription_{self._state.bits_counter}"
         self._extranonce1 = self._state.bits_counter.to_bytes(4, "big").hex()
         extranonce2_size = 4
+
+        # Capture miner software name/version from first parameter
+        if args and len(args) > 0 and args[0]:
+            self._miner_software = args[0]
+            self.logger.info("New miner connection: %s", self._miner_software)
+        else:
+            self._miner_software = "Unknown"
+
         return [
             [
                 ["mining.set_difficulty", subscription_id],
