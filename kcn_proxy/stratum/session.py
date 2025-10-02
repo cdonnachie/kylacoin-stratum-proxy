@@ -2,6 +2,7 @@ import base58
 import os
 import json
 import logging
+import asyncio
 
 from aiorpcx import (
     RPCSession,
@@ -52,6 +53,8 @@ class StratumSession(RPCSession):
         self._aux_url = aux_url
         self._extranonce1 = None
         self.logger = logging.getLogger("Stratum-Proxy")
+        self._keepalive_task = None  # Keepalive task reference
+        self._last_activity = None  # Track last activity time
 
         self.handlers = {
             "mining.subscribe": self.handle_subscribe,
@@ -71,6 +74,14 @@ class StratumSession(RPCSession):
         return await handler_invocation(handler, request)()
 
     async def connection_lost(self):
+        # Cancel keepalive task
+        if self._keepalive_task and not self._keepalive_task.done():
+            self._keepalive_task.cancel()
+            try:
+                await self._keepalive_task
+            except asyncio.CancelledError:
+                pass
+
         try:
             wid = getattr(self, "_worker_id", None)
             if wid:
@@ -150,6 +161,14 @@ class StratumSession(RPCSession):
         self._state.all_sessions.add(self)
         self._state.new_sessions.discard(self)
 
+        # Start keepalive task
+        if not self._keepalive_task or self._keepalive_task.done():
+            loop = asyncio.get_event_loop()
+            self._last_activity = loop.time()
+            self._keepalive_task = asyncio.create_task(self._keepalive_loop())
+            if self._verbose:
+                self.logger.debug("Started keepalive task for %s", username)
+
         # If a job exists, send it right away
         job = self._state.current_job_params()
         if job:
@@ -160,10 +179,38 @@ class StratumSession(RPCSession):
             self._share_difficulty = difficulty
             await self.send_notification("mining.set_difficulty", (difficulty,))
             await self.send_notification("mining.notify", job)
+            self._last_activity = (
+                asyncio.get_event_loop().time()
+            )  # Reset activity timer
             return True
 
     async def handle_configure(self, extensions):
         return {}
+
+    async def _keepalive_loop(self):
+        """Send periodic keepalive messages to prevent miner disconnection"""
+        while True:
+            try:
+                await asyncio.sleep(30)  # Check every 30 seconds
+
+                # If no activity for 45 seconds, send a notification
+                loop = asyncio.get_event_loop()
+                if self._last_activity and (loop.time() - self._last_activity > 45):
+                    # Send a difficulty notification (same value, just to keep connection alive)
+                    difficulty = getattr(self, "_share_difficulty", 1.0)
+                    await self.send_notification("mining.set_difficulty", (difficulty,))
+                    self._last_activity = loop.time()
+                    if self._verbose:
+                        self.logger.debug(
+                            "Sent keepalive to %s",
+                            getattr(self, "_worker_id", "unknown"),
+                        )
+
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                self.logger.error("Keepalive error: %s", e)
+                break
 
     async def handle_submit(
         self,
@@ -173,6 +220,10 @@ class StratumSession(RPCSession):
         ntime_hex: str,
         nonce_hex: str,
     ):
+        # Reset activity timer on any submission
+        loop = asyncio.get_event_loop()
+        self._last_activity = loop.time()
+
         state = self._state
 
         # Snapshot for consistent parent_block_hash calculation
