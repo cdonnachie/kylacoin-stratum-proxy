@@ -31,6 +31,11 @@ MANIFEST
 submit_history/
 logs/
 
+# Database files (keep schema, ignore data)
+data/*.db
+data/*.db-shm
+data/*.db-wal
+
 # Docker volumes data
 kylacoin-data/
 lyncoin-data/

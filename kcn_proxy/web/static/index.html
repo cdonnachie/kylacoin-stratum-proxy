@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>KCN-LCN Solo Mining Dashboard</title>
+    <link rel="stylesheet" href="/static/dashboard.css" />
+    <link rel="icon" type="image/png" href="/static/kylacoin-logo.png" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>
+        <img
+          src="/static/kylacoin-logo.png"
+          alt="KCN"
+          class="logo"
+          onerror="this.style.display='none'"
+        />
+        KCN-LCN Solo Mining Dashboard
+        <img
+          src="/static/lyncoin-logo.png"
+          alt="LCN"
+          class="logo"
+          onerror="this.style.display='none'"
+        />
+      </h1>
+
+      <div class="stats-grid">
+        <div
+          class="stat-card"
+          title="Current aggregated rolling hashrate (5m window). Toggle shows Instant (raw window) vs EMA (smoothed)."
+        >
+          <h3
+            style="
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              gap: 8px;
+            "
+          >
+            <span>Total Hashrate</span>
+            <label
+              style="
+                font-size: 0.55em;
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                cursor: pointer;
+                opacity: 0.8;
+              "
+            >
+              <input
+                type="checkbox"
+                id="mode-toggle-hashrate"
+                style="accent-color: #05a532; cursor: pointer"
+              />
+              <span
+                title="Toggle between EMA (smoothed) and Instant (raw) aggregate hashrate"
+                >Instant</span
+              >
+            </label>
+          </h3>
+          <div style="display: flex; align-items: baseline; gap: 10px">
+            <div class="value" id="total-hashrate">0.00</div>
+            <div class="unit" id="total-hashrate-unit">H/s</div>
+            <div
+              id="total-hashrate-conf"
+              style="
+                font-size: 0.55em;
+                letter-spacing: 0.5px;
+                padding: 4px 8px;
+                border-radius: 16px;
+                background: rgba(255, 255, 255, 0.18);
+                display: none;
+              "
+            >
+              ±100%
+            </div>
+          </div>
+          <div class="subtext" id="hashrate-subtext">
+            Waiting for first share…
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <h3>Active Miners</h3>
+          <div class="value" id="miner-count">0</div>
+          <div class="unit">Connected</div>
+        </div>
+
+        <div class="stat-card">
+          <h3>
+            <img
+              src="/static/kylacoin-logo.png"
+              alt="KCN"
+              class="chain-logo"
+              onerror="this.style.display='none'"
+            />
+            KCN Blocks (24h)
+          </h3>
+          <div class="value" id="kcn-blocks">0</div>
+          <div class="unit">Found</div>
+        </div>
+
+        <div class="stat-card">
+          <h3>
+            <img
+              src="/static/lyncoin-logo.png"
+              alt="LCN"
+              class="chain-logo"
+              onerror="this.style.display='none'"
+            />
+            LCN Blocks (24h)
+          </h3>
+          <div class="value" id="lcn-blocks">0</div>
+          <div class="unit">Found</div>
+        </div>
+
+        <div
+          class="stat-card"
+          title="Accepted vs total submitted shares over last 24h"
+        >
+          <h3>Acceptance Rate</h3>
+          <div class="value" id="acceptance-rate">100.0</div>
+          <div class="unit">%</div>
+        </div>
+
+        <div class="stat-card">
+          <h3>Total Shares</h3>
+          <div class="value" id="total-shares">0</div>
+          <div class="unit">24h</div>
+        </div>
+      </div>
+
+      <div
+        class="toolbar"
+        style="
+          display: flex;
+          flex-wrap: wrap;
+          gap: 18px;
+          align-items: center;
+          margin: -10px 0 20px 0;
+        "
+      >
+        <label
+          class="worker-toggle"
+          style="
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.8em;
+            letter-spacing: 0.5px;
+            opacity: 0.85;
+            cursor: pointer;
+          "
+        >
+          <input
+            type="checkbox"
+            id="worker-mode-toggle"
+            checked
+            style="
+              accent-color: #05a532;
+              width: 16px;
+              height: 16px;
+              cursor: pointer;
+            "
+          />
+          <span>Compact worker names</span>
+        </label>
+        <span style="font-size: 0.7em; opacity: 0.55"
+          >(Toggle to show full wallet.worker identifiers)</span
+        >
+        <button
+          id="flush-hashrate"
+          style="
+            margin-left: auto;
+            background: rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: #fff;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.7em;
+            letter-spacing: 0.5px;
+          "
+        >
+          Flush Hashrate Window
+        </button>
+      </div>
+
+      <div class="section">
+        <h2><span class="live-indicator"></span>Active Miners</h2>
+        <div class="table-wrapper">
+          <table id="miners-table" aria-label="Active Miners">
+            <thead>
+              <tr>
+                <th>Worker</th>
+                <th>Software</th>
+                <th class="col-num">Hashrate</th>
+                <th class="col-num">Uptime</th>
+              </tr>
+            </thead>
+            <tbody id="miners-body">
+              <tr>
+                <td colspan="4" class="no-data">Loading...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>🎉 Recent Blocks</h2>
+        <div
+          class="dual-blocks"
+          style="
+            display: grid;
+            gap: 24px;
+            grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
+          "
+        >
+          <div class="subsection">
+            <h3
+              style="
+                margin: 0 0 10px 0;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                font-size: 1em;
+              "
+            >
+              <span class="badge badge-kcn"
+                ><img
+                  src="/static/kylacoin-logo.png"
+                  alt=""
+                  class="chain-logo"
+                  onerror="this.style.display='none'"
+                />KCN</span
+              >
+              <span style="opacity: 0.75; font-weight: 500">Blocks</span>
+            </h3>
+            <div class="table-wrapper">
+              <table id="kcn-blocks-table" aria-label="Recent KCN Blocks">
+                <thead>
+                  <tr>
+                    <th class="col-num">Height</th>
+                    <th>Block Hash</th>
+                    <th>Worker</th>
+                    <th>Status</th>
+                    <th class="col-num">Time</th>
+                  </tr>
+                </thead>
+                <tbody id="kcn-blocks-body">
+                  <tr>
+                    <td colspan="5" class="no-data">Loading...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="subsection">
+            <h3
+              style="
+                margin: 0 0 10px 0;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                font-size: 1em;
+              "
+            >
+              <span class="badge badge-lcn"
+                ><img
+                  src="/static/lyncoin-logo.png"
+                  alt=""
+                  class="chain-logo"
+                  onerror="this.style.display='none'"
+                />LCN</span
+              >
+              <span style="opacity: 0.75; font-weight: 500">Blocks</span>
+            </h3>
+            <div class="table-wrapper">
+              <table id="lcn-blocks-table" aria-label="Recent LCN Blocks">
+                <thead>
+                  <tr>
+                    <th class="col-num">Height</th>
+                    <th>Block Hash</th>
+                    <th>Worker</th>
+                    <th>Status</th>
+                    <th class="col-num">Time</th>
+                  </tr>
+                </thead>
+                <tbody id="lcn-blocks-body">
+                  <tr>
+                    <td colspan="5" class="no-data">Loading...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>💰 Payout Addresses</h2>
+        <div class="table-wrapper">
+          <table aria-label="Payout Addresses">
+            <thead>
+              <tr>
+                <th>Chain</th>
+                <th>Address</th>
+                <th>Source</th>
+              </tr>
+            </thead>
+            <tbody id="payouts-body">
+              <tr>
+                <td colspan="3" class="no-data">Loading...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="update-time">
+        Last updated: <span id="last-update">Never</span>
+      </div>
+    </div>
+
+    <script>
+      function formatHashrate(miner) {
+        // Use the new hashrate_display field if available, otherwise fallback to old format
+        if (miner.hashrate_display) {
+          return miner.hashrate_display;
+        }
+        // Fallback for backward compatibility
+        const mhs = miner.hashrate_mhs || 0;
+        if (mhs === 0) {
+          return "0.00 H/s";
+        }
+        if (mhs >= 1000) {
+          return (mhs / 1000).toFixed(2) + " GH/s";
+        }
+        return mhs.toFixed(2) + " MH/s";
+      }
+
+      function formatUptime(seconds) {
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        const secs = seconds % 60;
+
+        if (hours > 0) {
+          return `${hours}h ${minutes}m`;
+        } else if (minutes > 0) {
+          return `${minutes}m ${secs}s`;
+        }
+        return `${secs}s`;
+      }
+
+      function formatTime(timestamp) {
+        const date = new Date(timestamp * 1000);
+        const now = new Date();
+        const diff = Math.floor((now - date) / 1000);
+
+        if (diff < 60) return `${diff}s ago`;
+        if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+        if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+        return `${Math.floor(diff / 86400)}d ago`;
+      }
+
+      function shortenHash(hash) {
+        if (!hash) return "";
+        if (hash.length <= 20) return hash;
+        return hash.substring(0, 10) + "..." + hash.substring(hash.length - 10);
+      }
+
+      function copyToClipboard(text, button) {
+        if (!navigator.clipboard) {
+          // Fallback
+          const ta = document.createElement("textarea");
+          ta.value = text;
+          document.body.appendChild(ta);
+          ta.select();
+          try {
+            document.execCommand("copy");
+          } catch (e) {}
+          document.body.removeChild(ta);
+        } else {
+          navigator.clipboard.writeText(text).catch(() => {});
+        }
+        if (button) {
+          button.classList.add("copied");
+          const original = button.textContent;
+          button.textContent = "Copied";
+          setTimeout(() => {
+            button.classList.remove("copied");
+            button.textContent = original;
+          }, 1200);
+        }
+      }
+
+      // Show only the worker name (suffix) to reduce width; keep full in tooltip
+      let workerCompactMode = true;
+
+      function displayWorker(full) {
+        if (!full) return "";
+        if (!workerCompactMode) return full; // full mode
+        if (full.includes(".")) {
+          const parts = full.split(".");
+          for (let i = parts.length - 1; i >= 0; i--) {
+            if (parts[i]) return parts[i];
+          }
+        }
+        return full;
+      }
+
+      async function updateMiners() {
+        try {
+          const response = await fetch("/api/miners");
+          const data = await response.json();
+
+          const instantMode = document.getElementById(
+            "mode-toggle-hashrate"
+          ).checked;
+          let displayStr, relErr, sharesWin;
+          if (instantMode) {
+            displayStr =
+              data.total_instant_display || data.total_hashrate_display;
+          } else {
+            displayStr = data.total_ema_display || data.total_hashrate_display;
+          }
+          if (displayStr) {
+            const parts = displayStr.split(" ");
+            document.getElementById("total-hashrate").textContent = parts[0];
+            document.getElementById("total-hashrate-unit").textContent =
+              parts[1] || "H/s";
+          }
+          relErr = data.total_rel_error_est ?? 1.0;
+          sharesWin = data.total_shares_in_window ?? 0;
+          const confEl = document.getElementById("total-hashrate-conf");
+          if (sharesWin > 0) {
+            const pct = (relErr * 100).toFixed(relErr * 100 >= 10 ? 1 : 2);
+            confEl.textContent = `±${pct}%`;
+            confEl.style.display = "inline-block";
+            // Color scale: green (<5%), amber (<15%), red otherwise
+            let bg;
+            if (relErr < 0.05) bg = "#057c32";
+            else if (relErr < 0.15) bg = "#a66b00";
+            else bg = "#a60000";
+            confEl.style.background = bg;
+          } else {
+            confEl.style.display = "none";
+          }
+          document.getElementById("hashrate-subtext").textContent = instantMode
+            ? "Instant window-based aggregate hashrate"
+            : "EMA-smoothed aggregate hashrate";
+          document.getElementById("miner-count").textContent = data.miner_count;
+
+          const tbody = document.getElementById("miners-body");
+          if (data.miners.length === 0) {
+            tbody.innerHTML =
+              '<tr><td colspan="4" class="no-data">No miners connected</td></tr>';
+          } else {
+            tbody.innerHTML = data.miners
+              .map(
+                (miner) => `
+                        <tr>
+                            <td title="${miner.worker}">${displayWorker(
+                  miner.worker
+                )}</td>
+                            <td>${miner.software}</td>
+                            <td class="col-num" title="Assigned diff: ${
+                              miner.assigned_difficulty ?? "n/a"
+                            }\nInstant: ${miner.hashrate_instant_hs?.toFixed(
+                  2
+                )} H/s\nEMA: ${miner.hashrate_ema_hs?.toFixed(
+                  2
+                )} H/s\nShares: ${miner.shares_in_window}\nRel Err: ±${(
+                  (miner.rel_error_est || 0) * 100
+                ).toFixed(1)}%">${formatHashrate(miner)}</td>
+                            <td class="col-num">${formatUptime(
+                              miner.uptime_seconds
+                            )}</td>
+                        </tr>
+                    `
+              )
+              .join("");
+          }
+        } catch (error) {
+          console.error("Error fetching miners:", error);
+        }
+      }
+
+      async function updateStats() {
+        try {
+          const response = await fetch("/api/stats");
+          const data = await response.json();
+
+          document.getElementById("kcn-blocks").textContent =
+            data.blocks.KCN || 0;
+          document.getElementById("lcn-blocks").textContent =
+            data.blocks.LCN || 0;
+          document.getElementById("acceptance-rate").textContent =
+            data.acceptance_rate.toFixed(1);
+          document.getElementById("total-shares").textContent =
+            data.total_shares.toLocaleString();
+        } catch (error) {
+          console.error("Error fetching stats:", error);
+        }
+      }
+
+      async function updateBlocks() {
+        try {
+          const response = await fetch("/api/blocks?limit=40");
+          const data = await response.json();
+
+          const kcnBody = document.getElementById("kcn-blocks-body");
+          const lcnBody = document.getElementById("lcn-blocks-body");
+
+          const kcnBlocks = data.blocks.filter((b) => b.chain === "KCN");
+          const lcnBlocks = data.blocks.filter((b) => b.chain === "LCN");
+
+          function renderBlockRow(block) {
+            const absTime = new Date(block.timestamp * 1000).toISOString();
+            return `
+              <tr>
+                <td class="col-num">${block.height}</td>
+                <td class="hash-short">
+                  <div class="copy-wrap" title="${block.block_hash}">
+                    <span>${shortenHash(block.block_hash)}</span>
+                    <button class="copy-btn" onclick="copyToClipboard('${
+                      block.block_hash
+                    }', this)" aria-label="Copy block hash">Copy</button>
+                  </div>
+                </td>
+                <td title="${block.worker}">${displayWorker(block.worker)}</td>
+                <td><span class="badge badge-${
+                  block.accepted ? "accepted" : "rejected"
+                }">${block.accepted ? "Accepted" : "Rejected"}</span></td>
+                <td class="col-num" title="${absTime}">${formatTime(
+              block.timestamp
+            )}</td>
+              </tr>`;
+          }
+
+          kcnBody.innerHTML = kcnBlocks.length
+            ? kcnBlocks.map(renderBlockRow).join("")
+            : '<tr><td colspan="5" class="no-data">No KCN blocks yet</td></tr>';
+          lcnBody.innerHTML = lcnBlocks.length
+            ? lcnBlocks.map(renderBlockRow).join("")
+            : '<tr><td colspan="5" class="no-data">No LCN blocks yet</td></tr>';
+        } catch (error) {
+          console.error("Error fetching blocks:", error);
+          document.getElementById("kcn-blocks-body").innerHTML =
+            '<tr><td colspan="5" class="no-data">Error</td></tr>';
+          document.getElementById("lcn-blocks-body").innerHTML =
+            '<tr><td colspan="5" class="no-data">Error</td></tr>';
+        }
+      }
+
+      async function updatePayouts() {
+        try {
+          const response = await fetch("/api/payouts");
+          const data = await response.json();
+
+          const tbody = document.getElementById("payouts-body");
+          const rows = [];
+
+          // KCN payout info
+          if (data.kcn_address) {
+            const source =
+              data.kcn_source === "first_miner" ? "First Miner" : "Config";
+            rows.push(`
+                        <tr>
+                            <td><span class="badge badge-kcn"><img src="/static/kylacoin-logo.png" alt="" class="chain-logo" onerror="this.style.display='none'">KCN</span></td>
+                            <td class="hash-short"><div class="copy-wrap" title="${
+                              data.kcn_address
+                            }"><span>${shortenHash(
+              data.kcn_address
+            )}</span><button class="copy-btn" onclick="copyToClipboard('${
+              data.kcn_address
+            }', this)" aria-label="Copy KCN address">Copy</button></div></td>
+                            <td>${source}</td>
+                        </tr>
+                    `);
+          } else {
+            rows.push(`
+                        <tr>
+                            <td><span class="badge badge-kcn"><img src="/static/kylacoin-logo.png" alt="" class="chain-logo" onerror="this.style.display='none'">KCN</span></td>
+                            <td><em>Will be set by first miner</em></td>
+                            <td>Auto</td>
+                        </tr>
+                    `);
+          }
+
+          // LCN payout info
+          if (data.lcn_address) {
+            rows.push(`
+                        <tr>
+                            <td><span class="badge badge-lcn"><img src="/static/lyncoin-logo.png" alt="" class="chain-logo" onerror="this.style.display='none'">LCN</span></td>
+              <td class="hash-short"><div class="copy-wrap" title="${
+                data.lcn_address
+              }"><span>${shortenHash(
+              data.lcn_address
+            )}</span><button class="copy-btn" onclick="copyToClipboard('${
+              data.lcn_address
+            }', this)" aria-label="Copy LCN address">Copy</button></div></td>
+                            <td>Config (.env)</td>
+                        </tr>
+                    `);
+          } else {
+            rows.push(`
+                        <tr>
+                            <td><span class="badge badge-lcn"><img src="/static/lyncoin-logo.png" alt="" class="chain-logo" onerror="this.style.display='none'">LCN</span></td>
+                            <td><em>Not configured (KCN only)</em></td>
+                            <td>Disabled</td>
+                        </tr>
+                    `);
+          }
+
+          tbody.innerHTML = rows.join("");
+        } catch (error) {
+          console.error("Error fetching payouts:", error);
+          document.getElementById("payouts-body").innerHTML =
+            '<tr><td colspan="3" class="no-data">Error loading payout info</td></tr>';
+        }
+      }
+
+      function updateAll() {
+        updateMiners();
+        updateStats();
+        updateBlocks();
+        updatePayouts();
+        document.getElementById("last-update").textContent =
+          new Date().toLocaleTimeString();
+      }
+
+      // Initial load
+      updateAll();
+
+      // Auto-refresh every 5 seconds
+      setInterval(updateAll, 5000);
+
+      // Worker name compact/full toggle logic
+      (function initWorkerToggle() {
+        const stored = localStorage.getItem("workerCompactMode");
+        if (stored === "full") {
+          workerCompactMode = false;
+        }
+        const cb = document.getElementById("worker-mode-toggle");
+        if (cb) {
+          cb.checked = workerCompactMode;
+          cb.addEventListener("change", () => {
+            workerCompactMode = cb.checked;
+            localStorage.setItem(
+              "workerCompactMode",
+              workerCompactMode ? "compact" : "full"
+            );
+            // Re-render without forcing network if desired; simplest: call update
+            updateMiners();
+            updateBlocks();
+          });
+        }
+      })();
+
+      // Flush hashrate button
+      (function initFlushButton() {
+        const btn = document.getElementById("flush-hashrate");
+        if (!btn) return;
+        btn.addEventListener("click", async () => {
+          btn.disabled = true;
+          try {
+            const res = await fetch("/api/flush_hashrate", { method: "POST" });
+            const js = await res.json();
+            btn.textContent = "Flushed (" + (js.cleared_workers || 0) + ")";
+            setTimeout(() => {
+              btn.textContent = "Flush Hashrate Window";
+              btn.disabled = false;
+              updateMiners();
+            }, 2500);
+          } catch (e) {
+            console.error("Flush failed", e);
+            btn.textContent = "Error";
+            setTimeout(() => {
+              btn.textContent = "Flush Hashrate Window";
+              btn.disabled = false;
+            }, 2500);
+          }
+        });
+      })();
+
+      // Remember hashrate mode toggle
+      (function initHashrateMode() {
+        const cb = document.getElementById("mode-toggle-hashrate");
+        if (!cb) return;
+        const stored = localStorage.getItem("hashrateDisplayMode");
+        if (stored === "instant") cb.checked = true;
+        cb.addEventListener("change", () => {
+          localStorage.setItem(
+            "hashrateDisplayMode",
+            cb.checked ? "instant" : "ema"
+          );
+          // force immediate refresh of miners aggregate view only
+          updateMiners();
+        });
+      })();
+    </script>
+  </body>
+</html>

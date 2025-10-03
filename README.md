@@ -2,6 +2,17 @@
 
 A stratum mining proxy for Kylacoin with optional Lyncoin merged mining (AuxPoW).
 
+## Features
+
+- ✅ **Merged Mining (AuxPoW)**: Mine both KylaCoin and LynCoin simultaneously
+- ✅ **ZMQ Support**: Instant new block notifications for both chains
+- ✅ **Parallel Block Submission**: Submit to both chains simultaneously for optimal speed
+- ✅ **Notifications**: Discord and Telegram alerts for blocks found and miner connections
+- ✅ **Web Dashboard** _(optional)_: Real-time monitoring of miners, hashrates, and blocks
+- ✅ **SQLite Database** _(optional)_: Historical statistics and block history
+- ✅ **Docker Ready**: Complete docker-compose setup with health checks
+- ✅ **Flexible Difficulty**: Configurable share difficulty for any hashrate
+
 ## Quick Start
 
 Choose your setup method:
@@ -86,6 +97,14 @@ Choose your setup method:
 | `SHARE_DIFFICULTY_DIVISOR`      | Share difficulty (higher = easier) | 1000.0             |
 | `USE_EASIER_TARGET`             | Use LCN target if easier           | true               |
 | `ENABLE_ZMQ`                    | Enable ZMQ block notifications     | true               |
+| `DISCORD_WEBHOOK_URL`           | Discord webhook for notifications  | (blank = disabled) |
+| `TELEGRAM_BOT_TOKEN`            | Telegram bot token                 | (blank = disabled) |
+| `TELEGRAM_CHAT_ID`              | Telegram chat ID                   | (blank = disabled) |
+| `ENABLE_DASHBOARD`              | Enable web dashboard               | false              |
+| `DASHBOARD_PORT`                | Web dashboard port                 | 8080               |
+| `ENABLE_DATABASE`               | Enable statistics database         | false              |
+
+See [NOTIFICATIONS.md](NOTIFICATIONS.md) for notification setup and [DASHBOARD.md](DASHBOARD.md) for dashboard configuration.
 
 ### Share Difficulty
 

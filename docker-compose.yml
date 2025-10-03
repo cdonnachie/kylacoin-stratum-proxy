@@ -69,6 +69,7 @@ services:
     restart: unless-stopped
     ports:
       - "${STRATUM_PORT:-54321}:${STRATUM_PORT:-54321}"
+      - "${DASHBOARD_PORT:-8080}:${DASHBOARD_PORT:-8080}"
     depends_on:
       kylacoin:
         condition: service_healthy
@@ -98,11 +99,15 @@ services:
       - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+      - ENABLE_DASHBOARD=${ENABLE_DASHBOARD:-false}
+      - DASHBOARD_PORT=${DASHBOARD_PORT:-8080}
+      - ENABLE_DATABASE=${ENABLE_DATABASE:-false}
     command: ["/app/entrypoint.sh"]
     networks:
       - crypto-net
     volumes:
       - ./submit_history:/app/submit_history
+      - ./data:/app/data
     healthcheck:
       test:
         [

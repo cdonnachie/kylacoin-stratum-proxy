@@ -32,6 +32,40 @@ def run_with_settings(settings: Settings):
     async def main():
         from aiohttp import ClientSession
 
+        # Initialize database if enabled
+        if settings.enable_database:
+            from .db.schema import init_database, cleanup_old_data
+
+            logger.info("Initializing database...")
+            await init_database()
+
+            # Start periodic cleanup task (runs every 4 hours)
+            async def periodic_cleanup():
+                while True:
+                    try:
+                        await asyncio.sleep(4 * 3600)  # 4 hours
+                        await cleanup_old_data()
+                    except Exception as e:
+                        logger.error("Periodic database cleanup failed: %s", e)
+
+            asyncio.create_task(periodic_cleanup())
+
+        # Start web dashboard if enabled
+        dashboard_task = None
+        if settings.enable_dashboard:
+            import uvicorn
+            from .web.api import app, set_state
+
+            logger.info("Starting web dashboard on port %d", settings.dashboard_port)
+            set_state(state)
+
+            # Create uvicorn config
+            config = uvicorn.Config(
+                app, host="0.0.0.0", port=settings.dashboard_port, log_level="warning"
+            )
+            server = uvicorn.Server(config)
+            dashboard_task = asyncio.create_task(server.serve())
+
         async with ClientSession() as http:
             # ZMQ callbacks
             async def on_kcn_block(block_hash: str):
@@ -79,6 +113,10 @@ def run_with_settings(settings: Settings):
                     on_lcn_block=on_lcn_block if settings.aux_url else None,
                 )
                 tasks.append(asyncio.create_task(zmq_listener.start()))
+
+            # Add dashboard task if enabled
+            if dashboard_task:
+                tasks.append(dashboard_task)
 
             # Wait for any task to complete or fail
             await asyncio.wait(tasks, return_when=asyncio.FIRST_EXCEPTION)

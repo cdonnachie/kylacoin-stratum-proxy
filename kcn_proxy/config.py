@@ -33,6 +33,9 @@ class Settings:
     discord_webhook: str = ""
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
+    enable_dashboard: bool = False
+    dashboard_port: int = 8080
+    enable_database: bool = False
 
     def __post_init__(self):
         """Load settings from environment variables at instance creation time"""
@@ -68,6 +71,10 @@ class Settings:
         self.discord_webhook = os.getenv("DISCORD_WEBHOOK_URL", "")
         self.telegram_bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "")
         self.telegram_chat_id = os.getenv("TELEGRAM_CHAT_ID", "")
+        # Dashboard settings
+        self.enable_dashboard = os.getenv("ENABLE_DASHBOARD", "false").lower() == "true"
+        self.dashboard_port = int(os.getenv("DASHBOARD_PORT", "8080"))
+        self.enable_database = os.getenv("ENABLE_DATABASE", "false").lower() == "true"
 
     @property
     def node_url(self) -> str:

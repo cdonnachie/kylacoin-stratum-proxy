@@ -54,3 +54,47 @@ def bech32_decode(bech: str):
     if bits >= 5 or ((acc << (5 - bits)) & 31):
         return (None, None)
     return (hrp, bytes(converted))
+
+
+def bech32_encode(hrp: str, data: bytes) -> str:
+    """Encode bytes to bech32 address"""
+    CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
+
+    def bech32_polymod(values):
+        GEN = [0x3B6A57B2, 0x26508E6D, 0x1EA119FA, 0x3D4233DD, 0x2A1462B3]
+        chk = 1
+        for value in values:
+            top = chk >> 25
+            chk = (chk & 0x1FFFFFF) << 5 ^ value
+            for i in range(5):
+                chk ^= GEN[i] if ((top >> i) & 1) else 0
+        return chk
+
+    def bech32_hrp_expand(hrp):
+        return [ord(x) >> 5 for x in hrp] + [0] + [ord(x) & 31 for x in hrp]
+
+    def bech32_create_checksum(hrp, data):
+        values = bech32_hrp_expand(hrp) + data
+        polymod = bech32_polymod(values + [0, 0, 0, 0, 0, 0]) ^ 1
+        return [(polymod >> 5 * (5 - i)) & 31 for i in range(6)]
+
+    # Convert data to 5-bit values
+    spec = [0]  # witness version 0
+    acc = 0
+    bits = 0
+    for value in data:
+        acc = (acc << 8) | value
+        bits += 8
+        while bits >= 5:
+            bits -= 5
+            spec.append((acc >> bits) & 31)
+
+    if bits:
+        spec.append((acc << (5 - bits)) & 31)
+
+    # Create checksum
+    checksum = bech32_create_checksum(hrp, spec)
+
+    # Combine and encode
+    combined = spec + checksum
+    return hrp + "1" + "".join([CHARSET[d] for d in combined])

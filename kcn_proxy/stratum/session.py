@@ -3,6 +3,7 @@ import os
 import json
 import logging
 import asyncio
+import math
 
 from aiorpcx import (
     RPCSession,
@@ -23,7 +24,141 @@ from ..consensus.targets import (
 )
 
 logger = logging.getLogger(__name__)
-hashratedict = {}
+
+# Hashrate tracking based on share submissions
+hashrate_tracker = {}
+
+
+async def _log_share_stats_background(
+    worker: str, timestamp: int, accepted: bool, difficulty: float
+):
+    """Background task for logging share statistics without blocking share responses"""
+    try:
+        from ..db.schema import update_share_stats
+
+        await update_share_stats(
+            worker=worker,
+            timestamp=timestamp,
+            accepted=accepted,
+            difficulty=difficulty,
+        )
+    except ImportError:
+        pass  # Database not enabled
+    except Exception as e:
+        logger.debug("Background share stats logging failed: %s", e)
+
+
+class HashrateTracker:
+    """Enhanced hashrate tracker with EMA smoothing & confidence metrics."""
+
+    def __init__(self, window_seconds: int = 300, ema_half_life: int = 120):
+        self.window_seconds = window_seconds
+        self.ema_half_life = ema_half_life
+        # worker -> list[(timestamp, difficulty, accepted)]
+        self.worker_shares: dict[str, list[tuple[float, float, bool]]] = {}
+        # worker -> (ema_hashrate_hs, last_update_ts)
+        self.worker_ema: dict[str, tuple[float, float]] = {}
+
+    def add_share(self, worker: str, difficulty: float, accepted: bool = True):
+        import time
+
+        now = time.time()
+        shares = self.worker_shares.setdefault(worker, [])
+        shares.append((now, difficulty, accepted))
+        cutoff = now - self.window_seconds
+        self.worker_shares[worker] = [s for s in shares if s[0] >= cutoff]
+        inst = self._instant(worker, now)
+        ema_val, last_ts = self.worker_ema.get(worker, (inst, now))
+        dt = max(0.0, now - last_ts)
+        alpha = (
+            1 - math.exp(-dt / self.ema_half_life) if self.ema_half_life > 0 else 1.0
+        )
+        ema_val = alpha * inst + (1 - alpha) * ema_val
+        # Safety clamp: if legacy EMA wildly exceeds current instantaneous (e.g., after logic change)
+        # reduce it to avoid misleading multi-order-of-magnitude displays.
+        if inst > 0 and ema_val > inst * 64:  # 64x threshold is generous
+            ema_val = inst
+        self.worker_ema[worker] = (ema_val, now)
+
+    def _instant(self, worker: str, now: float | None = None) -> float:
+        if worker not in self.worker_shares:
+            return 0.0
+        if now is None:
+            import time
+
+            now = time.time()
+        cutoff = now - self.window_seconds
+        accepted = [s for s in self.worker_shares[worker] if s[2] and s[0] >= cutoff]
+        if not accepted:
+            return 0.0
+        oldest = min(ts for ts, *_ in accepted)
+        span = max(1e-6, now - max(cutoff, oldest))
+        total_d = sum(diff for ts, diff, _ in accepted)
+        return (total_d * (2**32)) / span if total_d > 0 else 0.0
+
+    def _confidence(self, worker: str) -> tuple[int, float]:
+        if worker not in self.worker_shares:
+            return 0, 1.0
+        accepted = [s for s in self.worker_shares[worker] if s[2]]
+        n = len(accepted)
+        if n == 0:
+            return 0, 1.0
+        return n, 1 / math.sqrt(n)
+
+    def get_hashrate_display(self, worker: str) -> dict:
+        if worker not in self.worker_shares:
+            return {
+                "value": 0.0,
+                "unit": "H/s",
+                "display": "0.00 H/s",
+                "instant": 0.0,
+                "ema": 0.0,
+                "shares": 0,
+                "rel_error": 1.0,
+            }
+        inst = self._instant(worker)
+        ema_val, _ = self.worker_ema.get(worker, (inst, 0.0))
+        n_shares, rel_err = self._confidence(worker)
+        display_hs = ema_val if ema_val > 0 else inst
+        if display_hs >= 1_000_000_000:
+            value, unit = display_hs / 1_000_000_000, "GH/s"
+        elif display_hs >= 1_000_000:
+            value, unit = display_hs / 1_000_000, "MH/s"
+        elif display_hs >= 1_000:
+            value, unit = display_hs / 1_000, "KH/s"
+        else:
+            value, unit = display_hs, "H/s"
+        return {
+            "value": value,
+            "unit": unit,
+            "display": f"{value:.2f} {unit}",
+            "instant": inst,
+            "ema": ema_val,
+            "shares": n_shares,
+            "rel_error": rel_err,
+        }
+
+    def get_hashrate_mhs(self, worker: str) -> float:
+        result = self.get_hashrate_display(worker)
+        unit = result["unit"]
+        v = result["value"]
+        if unit == "MH/s":
+            return v
+        if unit == "KH/s":
+            return v / 1_000
+        if unit == "H/s":
+            return v / 1_000_000
+        if unit == "GH/s":
+            return v * 1_000
+        return 0.0
+
+    def remove_worker(self, worker: str):
+        """Remove worker from tracking"""
+        self.worker_shares.pop(worker, None)
+
+
+# Global hashrate tracker instance
+hashrate_tracker = HashrateTracker()
 
 
 class StratumSession(RPCSession):
@@ -104,6 +239,22 @@ class StratumSession(RPCSession):
                 miner_software=miner_software,
             )
 
+            # Log to database if enabled
+            try:
+                from ..db.schema import log_connection_event
+                import time
+
+                await log_connection_event(
+                    worker=worker,
+                    miner_software=miner_software or "Unknown",
+                    event_type="disconnected",
+                    timestamp=int(time.time()),
+                )
+            except ImportError:
+                pass  # Database not enabled
+            except Exception as e:
+                self.logger.debug("Database logging failed: %s", e)
+
         # Cancel keepalive task
         if self._keepalive_task and not self._keepalive_task.done():
             self._keepalive_task.cancel()
@@ -115,9 +266,7 @@ class StratumSession(RPCSession):
         try:
             wid = getattr(self, "_worker_id", None)
             if wid:
-                from .session import hashratedict
-
-                hashratedict.pop(wid, None)
+                hashrate_tracker.remove_worker(wid)
         except Exception:
             pass
 
@@ -200,12 +349,33 @@ class StratumSession(RPCSession):
         self._state.all_sessions.add(self)
         self._state.new_sessions.discard(self)
 
+        # Store connection time for uptime tracking
+        import time
+
+        self._connection_time = time.time()
+
         # Send connection notification
         miner_software = getattr(self, "_miner_software", None)
         await self._notification_manager.notify_miner_connected(
             worker=username,
             miner_software=miner_software,
         )
+
+        # Log to database if enabled
+        try:
+            from ..db.schema import log_connection_event
+            import time
+
+            await log_connection_event(
+                worker=username,
+                miner_software=miner_software or "Unknown",
+                event_type="connected",
+                timestamp=int(time.time()),
+            )
+        except ImportError:
+            pass  # Database not enabled
+        except Exception as e:
+            self.logger.debug("Database logging failed: %s", e)
 
         # Start keepalive task
         if not self._keepalive_task or self._keepalive_task.done():
@@ -332,6 +502,7 @@ class StratumSession(RPCSession):
             lcn_target_int = int(state.aux_job.target, 16)
             is_lcn_block = hnum <= lcn_target_int
 
+        # Difficulty we assigned to the miner (expected work per share)
         sent_diff = getattr(self, "_share_difficulty", 1.0) or 1.0
         DIFF1 = int(
             "00000000ffff0000000000000000000000000000000000000000000000000000", 16
@@ -341,6 +512,22 @@ class StratumSession(RPCSession):
         # Accept share if it meets either target or the miner difficulty
         is_block = is_kcn_block or is_lcn_block
         if not is_block and (share_diff / sent_diff) < 0.99:
+            # Log rejected share asynchronously
+            import time
+
+            asyncio.create_task(
+                _log_share_stats_background(
+                    worker=worker,
+                    timestamp=int(time.time()),
+                    accepted=False,
+                    difficulty=share_diff,
+                )
+            )
+            # Record rejected share (confidence accounting) using assigned diff
+            try:
+                hashrate_tracker.add_share(worker, sent_diff, accepted=False)
+            except Exception:
+                pass
             if self._debug_shares:
                 self.logger.error(
                     "Low difficulty share: shareDiff=%.18f minerDiff=%.18f",
@@ -355,6 +542,29 @@ class StratumSession(RPCSession):
         if is_lcn_block:
             block_msg_parts.append("LCN BLOCK!")
         block_msg = f" ({', '.join(block_msg_parts)})" if block_msg_parts else ""
+
+        # Track share using the ASSIGNED difficulty to avoid conditional upward bias
+        hashrate_tracker.add_share(worker, sent_diff, accepted=True)
+
+        # Log share statistics asynchronously
+        import time
+
+        asyncio.create_task(
+            _log_share_stats_background(
+                worker=worker,
+                timestamp=int(time.time()),
+                accepted=True,
+                difficulty=share_diff,
+            )
+        )
+
+        if self._debug_shares:
+            self.logger.debug(
+                "Share accepted: worker=%s, difficulty=%.6f, target=%.6f",
+                worker,
+                share_diff,
+                sent_diff,
+            )
 
         if self._verbose or is_block:
             # Convert targets to difficulty values for better readability
@@ -683,6 +893,27 @@ class StratumSession(RPCSession):
                         miner_software=getattr(self, "_miner_software", None),
                     )
 
+                    # Log to database if enabled
+                    try:
+                        from ..db.schema import log_block_found
+                        import time
+
+                        await log_block_found(
+                            chain="KCN",
+                            height=kcn_height_for_notif,
+                            block_hash=parent_block_hash_for_auxpow.hex(),
+                            worker=worker,
+                            miner_software=getattr(self, "_miner_software", None)
+                            or "Unknown",
+                            difficulty=share_diff,
+                            timestamp=int(time.time()),
+                            accepted=True,
+                        )
+                    except ImportError:
+                        pass  # Database not enabled
+                    except Exception as e:
+                        self.logger.debug("Database logging failed: %s", e)
+
                 if lcn_accepted:
                     await self._notification_manager.notify_block_found(
                         chain="LCN",
@@ -692,21 +923,49 @@ class StratumSession(RPCSession):
                         difficulty=share_diff,
                         miner_software=getattr(self, "_miner_software", None),
                     )
+
+                    # Log to database if enabled
+                    try:
+                        from ..db.schema import log_block_found
+                        import time
+
+                        await log_block_found(
+                            chain="LCN",
+                            height=lcn_height_for_notif,
+                            block_hash=parent_block_hash_for_auxpow.hex(),
+                            worker=worker,
+                            miner_software=getattr(self, "_miner_software", None)
+                            or "Unknown",
+                            difficulty=share_diff,
+                            timestamp=int(time.time()),
+                            accepted=True,
+                        )
+                    except ImportError:
+                        pass  # Database not enabled
+                    except Exception as e:
+                        self.logger.debug("Database logging failed: %s", e)
         return True
 
     async def handle_eth_submitHashrate(self, hashrate: str, clientid: str):
+        """Handle ETH-style hashrate reporting (rarely used by Flex miners)"""
         try:
             rate = int(hashrate, 16)
-            worker = str(self).strip(">").split()[3]
-            from math import isfinite
+            worker = getattr(self, "_worker_id", "unknown")
 
-            hashratedict[worker] = rate
-            total = sum(hashratedict.values())
+            # Format hashrate with appropriate units for CPU mining
+            if rate >= 1_000_000:
+                rate_display = f"{rate / 1_000_000:.2f} MH/s"
+            elif rate >= 1_000:
+                rate_display = f"{rate / 1_000:.2f} KH/s"
+            else:
+                rate_display = f"{rate:.2f} H/s"
+
+            # For ETH hashrate reports, we'll just log but rely on share-based calculation
             self.logger.info(
-                "Reported hashrate: %.2f Mh/s (total: %.2f Mh/s)",
-                rate / 1_000_000,
-                total / 1_000_000,
+                "ETH hashrate reported by %s: %s (note: using share-based calculation)",
+                worker,
+                rate_display,
             )
-        except Exception:
-            pass
+        except Exception as e:
+            self.logger.debug("ETH hashrate parsing error: %s", e)
         return True

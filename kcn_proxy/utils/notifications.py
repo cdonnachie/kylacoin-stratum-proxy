@@ -130,12 +130,12 @@ class NotificationManager:
 
         # Build embed fields
         fields = [
-            {"name": "Block Height", "value": f"`{height:,}`", "inline": True},
+            {"name": "Block Height", "value": f"`{height}`", "inline": True},
             {"name": "Difficulty", "value": f"`{difficulty:.6f}`", "inline": True},
             {"name": "Chain", "value": f"`{chain}`", "inline": True},
             {
                 "name": "Block Hash",
-                "value": f"`{block_hash[:16]}...{block_hash[-16:]}`",
+                "value": f"`{block_hash}`",
                 "inline": False,
             },
             {"name": "Worker", "value": f"`{worker}`", "inline": False},
@@ -242,7 +242,7 @@ class NotificationManager:
 
         # Build message with Markdown formatting
         message = f"🎉 *{chain} Block Found!*\n\n"
-        message += f"*Block Height:* `{height:,}`\n"
+        message += f"*Block Height:* `{height}`\n"
         message += f"*Difficulty:* `{difficulty:.6f}`\n"
         message += f"*Block Hash:*\n`{block_hash}`\n\n"
         message += f"*Worker:* `{worker}`\n"
