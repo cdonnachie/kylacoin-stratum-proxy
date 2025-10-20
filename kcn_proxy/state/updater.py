@@ -133,9 +133,13 @@ async def update_once(state, settings, http: ClientSession, force_update: bool =
         # Use epoch timestamp as job ID
         state.job_counter = ts
 
-        # push difficulty + notify
+        # Network difficulty (diff1-scaled) based on chosen target. Store for stats & clamps.
         t_int = int(state.target, 16)
-        difficulty = target_to_diff1(t_int) / settings.share_difficulty_divisor
+        network_diff = target_to_diff1(t_int)
+        state.advertised_diff = network_diff
+
+        # Per-share difficulty we tell miners (scaled by divisor unless block-only)
+        difficulty = network_diff / settings.share_difficulty_divisor
 
         clean = not roll_due or (new_block or new_witness)
         job_params = [

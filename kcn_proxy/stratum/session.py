@@ -12,6 +12,7 @@ from aiorpcx import (
     Request,
     handler_invocation,
     RPCError,
+    JSONRPC,
 )
 from ..state.template import TemplateState
 from ..utils.enc import bech32_decode
@@ -19,9 +20,8 @@ from ..consensus.merkle import fold_branch_index0
 from ..consensus.header import build_header80_le
 from ..utils.hashers import sha3d, flex_pow
 from aiohttp import ClientSession
-from ..consensus.targets import (
-    target_to_diff1,
-)
+from ..consensus.targets import target_to_diff1
+from . import vardiff as _vardiff_mod
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +44,44 @@ async def _log_share_stats_background(
         )
     except ImportError:
         pass  # Database not enabled
+    except Exception as e:
+        logger.debug("Background share stats logging failed: %s", e)
+
+
+async def _record_best_share_background(
+    worker: str,
+    chain: str,
+    block_height: int,
+    share_difficulty: float,
+    target_difficulty: float,
+    timestamp: int,
+    miner_software: str = None,
+):
+    """Background task for recording potential best shares"""
+    try:
+        from ..db.schema import record_best_share
+
+        # Debug logging for high difficulty shares
+        if share_difficulty > 100:
+            logger.info(
+                f"BEST SHARE BACKGROUND - {chain}: diff={share_difficulty:.2f}, "
+                f"target={target_difficulty:.2f}, ratio={share_difficulty/target_difficulty:.6f}"
+            )
+
+        await record_best_share(
+            worker=worker,
+            chain=chain,
+            block_height=block_height,
+            share_difficulty=share_difficulty,
+            target_difficulty=target_difficulty,
+            timestamp=timestamp,
+            miner_software=miner_software,
+        )
+    except ImportError:
+        logger.warning("Database import failed for best share recording")
+    except Exception as e:
+        logger.error(f"Error in best share background task: {e}")
+        # Don't let best share tracking interfere with mining
     except Exception as e:
         logger.debug("Background share stats logging failed: %s", e)
 
@@ -92,7 +130,15 @@ class HashrateTracker:
         if not accepted:
             return 0.0
         oldest = min(ts for ts, *_ in accepted)
-        span = max(1e-6, now - max(cutoff, oldest))
+        span = now - max(cutoff, oldest)
+
+        # For very short spans (especially with 1-2 shares), use a minimum reasonable window
+        # This prevents unrealistic hashrate spikes after proxy restart or new miner connection
+        # Assume minimum 10 second span to avoid division by near-zero
+        MIN_SPAN = 10.0
+        if span < MIN_SPAN:
+            span = MIN_SPAN
+
         total_d = sum(diff for ts, diff, _ in accepted)
         return (total_d * (2**32)) / span if total_d > 0 else 0.0
 
@@ -151,6 +197,65 @@ class HashrateTracker:
         if unit == "GH/s":
             return v * 1_000
         return 0.0
+
+    def get_interval_data(self, worker: str) -> dict:
+        """Get share interval metrics for a worker (works with or without VarDiff)"""
+        if worker not in self.worker_shares:
+            return {
+                "avg_interval": None,
+                "ema_interval": None,
+                "blended_interval": None,
+                "share_count": 0,
+            }
+
+        import time
+
+        now = time.time()
+
+        shares = self.worker_shares[worker]
+        accepted = [s for s in shares if s[2]]  # Only accepted shares
+
+        avg_interval = None
+        ema_interval = None
+
+        if len(accepted) >= 2:
+            # Calculate average interval between accepted shares
+            first_ts = accepted[0][0]
+            last_ts = accepted[-1][0]
+            span = last_ts - first_ts
+            if span > 0:
+                avg_interval = span / (len(accepted) - 1)
+
+            # Calculate EMA of inter-share intervals
+            intervals = []
+            for i in range(1, len(accepted)):
+                interval = accepted[i][0] - accepted[i - 1][0]
+                intervals.append(interval)
+
+            if intervals:
+                ema_val = intervals[0]
+                for interval in intervals[1:]:
+                    # Apply EMA with half-life of 120 seconds
+                    alpha = (
+                        1 - math.exp(-1.0 / self.ema_half_life)
+                        if self.ema_half_life > 0
+                        else 1.0
+                    )
+                    ema_val = alpha * interval + (1 - alpha) * ema_val
+                ema_interval = ema_val
+
+        # Blend average and EMA if both available
+        if avg_interval and ema_interval:
+            blended = 0.5 * avg_interval + 0.5 * ema_interval
+        else:
+            blended = ema_interval or avg_interval
+
+        return {
+            "avg_interval": avg_interval,
+            "ema_interval": ema_interval,
+            "blended_interval": blended,
+            "share_count": len(accepted),
+        }
 
     def remove_worker(self, worker: str):
         """Remove worker from tracking"""
@@ -227,6 +332,20 @@ class StratumSession(RPCSession):
                 return
         else:
             return
+
+        # For mining.submit, filter out extra parameters like 'rigid' from mining pool software
+        # The Stratum protocol spec defines these parameters, but some pool software adds extras
+        if request.method == "mining.submit" and isinstance(request.args, dict):
+            # Keep only the expected parameters for mining.submit
+            # Standard Stratum: worker, job_id, extranonce2, ntime, nonce
+            # Some pools send: login, pass, rigid, etc. - we filter these out
+            expected_params = {"worker", "job_id", "extranonce2", "ntime", "nonce"}
+            filtered_args = {
+                k: v for k, v in request.args.items() if k in expected_params
+            }
+            # Reconstruct request with filtered parameters as a dict
+            request = Request(request.method, filtered_args, request.id)
+
         return await handler_invocation(handler, request)()
 
     async def connection_lost(self):
@@ -388,10 +507,16 @@ class StratumSession(RPCSession):
         # If a job exists, send it right away
         job = self._state.current_job_params()
         if job:
-            difficulty = (
-                target_to_diff1(int(self._state.target, 16))
-                / self._share_difficulty_divisor
-            )
+            base_diff = target_to_diff1(int(self._state.target, 16))
+            if _vardiff_mod.vardiff_manager is not None:
+                try:
+                    difficulty = await _vardiff_mod.vardiff_manager.get_difficulty(
+                        self._worker_id
+                    )
+                except Exception:
+                    difficulty = base_diff / self._share_difficulty_divisor
+            else:
+                difficulty = base_diff / self._share_difficulty_divisor
             self._share_difficulty = difficulty
             await self.send_notification("mining.set_difficulty", (difficulty,))
             await self.send_notification("mining.notify", job)
@@ -414,6 +539,19 @@ class StratumSession(RPCSession):
                 if self._last_activity and (loop.time() - self._last_activity > 45):
                     # Send a difficulty notification (same value, just to keep connection alive)
                     difficulty = getattr(self, "_share_difficulty", 1.0)
+                    # If vardiff enabled, optionally refresh difficulty when sending keepalive
+                    if _vardiff_mod.vardiff_manager is not None and getattr(
+                        self, "_worker_id", None
+                    ):
+                        try:
+                            vd = await _vardiff_mod.vardiff_manager.get_difficulty(
+                                self._worker_id
+                            )
+                            if abs(vd - difficulty) / max(difficulty, 1e-9) >= 0.05:
+                                difficulty = vd
+                                self._share_difficulty = vd
+                        except Exception:
+                            pass
                     await self.send_notification("mining.set_difficulty", (difficulty,))
                     self._last_activity = loop.time()
                     if self._verbose:
@@ -428,14 +566,50 @@ class StratumSession(RPCSession):
                 self.logger.error("Keepalive error: %s", e)
                 break
 
-    async def handle_submit(
-        self,
-        worker: str,
-        job_id: str,
-        extranonce2_hex: str,
-        ntime_hex: str,
-        nonce_hex: str,
-    ):
+    async def handle_submit(self, *args, **kwargs):
+        """
+        Handle mining.submit requests with flexible parameter handling.
+        Some mining pool software sends extra parameters like 'rigid', 'login', 'pass'.
+
+        Standard Stratum parameters:
+        - worker (or login): Worker identifier
+        - job_id: Job ID from the template
+        - extranonce2 (or extranonce2_hex): Extranonce2 hex string
+        - ntime (or ntime_hex): Block time hex string
+        - nonce (or nonce_hex): Nonce hex string
+        """
+        # Parse parameters flexibly to handle different mining software
+        worker = None
+        job_id = None
+        extranonce2_hex = None
+        ntime_hex = None
+        nonce_hex = None
+
+        # Try to get from kwargs first (named parameters)
+        worker = kwargs.get("worker") or kwargs.get("login")
+        job_id = kwargs.get("job_id")
+        extranonce2_hex = kwargs.get("extranonce2_hex") or kwargs.get("extranonce2")
+        ntime_hex = kwargs.get("ntime_hex") or kwargs.get("ntime")
+        nonce_hex = kwargs.get("nonce_hex") or kwargs.get("nonce")
+
+        # Fall back to positional arguments if not found in kwargs
+        if len(args) >= 1 and not worker:
+            worker = args[0]
+        if len(args) >= 2 and not job_id:
+            job_id = args[1]
+        if len(args) >= 3 and not extranonce2_hex:
+            extranonce2_hex = args[2]
+        if len(args) >= 4 and not ntime_hex:
+            ntime_hex = args[3]
+        if len(args) >= 5 and not nonce_hex:
+            nonce_hex = args[4]
+
+        # Validate we have all required parameters
+        if not all([worker, job_id, extranonce2_hex, ntime_hex, nonce_hex]):
+            raise RPCError(
+                -32602, "Invalid request arguments - missing required parameters"
+            )
+
         # Reset activity timer on any submission
         loop = asyncio.get_event_loop()
         self._last_activity = loop.time()
@@ -545,18 +719,60 @@ class StratumSession(RPCSession):
 
         # Track share using the ASSIGNED difficulty to avoid conditional upward bias
         hashrate_tracker.add_share(worker, sent_diff, accepted=True)
+        # Record accepted share for vardiff to adjust miner difficulty
+        if _vardiff_mod.vardiff_manager is not None:
+            try:
+                await _vardiff_mod.vardiff_manager.record_share(
+                    worker, share_difficulty=sent_diff
+                )
+            except Exception:
+                pass
 
         # Log share statistics asynchronously
         import time
 
+        current_timestamp = int(time.time())
+
         asyncio.create_task(
             _log_share_stats_background(
                 worker=worker,
-                timestamp=int(time.time()),
+                timestamp=current_timestamp,
                 accepted=True,
                 difficulty=share_diff,
             )
         )
+
+        # Record regular shares (non-blocks) as potential best shares
+        if not is_block:
+            # Record KCN best share for regular shares
+            kcn_target_diff = target_to_diff1(kcn_target_int)
+            asyncio.create_task(
+                _record_best_share_background(
+                    worker=worker,
+                    chain="KCN",
+                    block_height=state.height,
+                    share_difficulty=share_diff,
+                    target_difficulty=kcn_target_diff,
+                    timestamp=current_timestamp,
+                    miner_software=getattr(self, "_miner_software", None),
+                )
+            )
+
+            # Record LCN best share for regular shares if aux job exists
+            if state.aux_job and state.aux_job.target:
+                aux_target_diff = target_to_diff1(lcn_target_int)
+                aux_height = getattr(state.aux_job, "height", state.height)
+                asyncio.create_task(
+                    _record_best_share_background(
+                        worker=worker,
+                        chain="LCN",
+                        block_height=aux_height,
+                        share_difficulty=share_diff,
+                        target_difficulty=aux_target_diff,
+                        timestamp=current_timestamp,
+                        miner_software=getattr(self, "_miner_software", None),
+                    )
+                )
 
         if self._debug_shares:
             self.logger.debug(
@@ -688,6 +904,22 @@ class StratumSession(RPCSession):
                         ):  # submitblock returns null on success
                             kcn_accepted = True
                             kcn_height_for_notif = state.height
+
+                            # Record as best share since block was accepted
+                            kcn_target_diff = target_to_diff1(kcn_target_int)
+                            asyncio.create_task(
+                                _record_best_share_background(
+                                    worker=worker,
+                                    chain="KCN",
+                                    block_height=state.height,
+                                    share_difficulty=share_diff,
+                                    target_difficulty=kcn_target_diff,
+                                    timestamp=current_timestamp,
+                                    miner_software=getattr(
+                                        self, "_miner_software", None
+                                    ),
+                                )
+                            )
 
                 async def submit_lcn_block():
                     nonlocal lcn_accepted, lcn_height_for_notif
@@ -852,6 +1084,22 @@ class StratumSession(RPCSession):
                                 # Track successful submission for deferred notification
                                 lcn_accepted = True
                                 lcn_height_for_notif = lcn_height
+
+                                # Record as best share since block was accepted
+                                lcn_target_diff = target_to_diff1(lcn_target_int)
+                                asyncio.create_task(
+                                    _record_best_share_background(
+                                        worker=worker,
+                                        chain="LCN",
+                                        block_height=lcn_height,
+                                        share_difficulty=share_diff,
+                                        target_difficulty=lcn_target_diff,
+                                        timestamp=current_timestamp,
+                                        miner_software=getattr(
+                                            self, "_miner_software", None
+                                        ),
+                                    )
+                                )
                             else:
                                 # Log detailed info about why the submission was rejected
                                 self.logger.warning(
@@ -915,10 +1163,16 @@ class StratumSession(RPCSession):
                         self.logger.debug("Database logging failed: %s", e)
 
                 if lcn_accepted:
+                    # For the aux (LCN) chain, we should record the aux hash, not the parent KCN block hash
+                    lcn_aux_hash = getattr(aux_job_snapshot, "aux_hash", None)
+                    if not lcn_aux_hash:
+                        # Fallback to previous behavior only if aux hash missing (shouldn't happen)
+                        lcn_aux_hash = parent_block_hash_for_auxpow.hex()
+
                     await self._notification_manager.notify_block_found(
                         chain="LCN",
                         height=lcn_height_for_notif,
-                        block_hash=parent_block_hash_for_auxpow.hex(),
+                        block_hash=lcn_aux_hash,
                         worker=worker,
                         difficulty=share_diff,
                         miner_software=getattr(self, "_miner_software", None),
@@ -932,7 +1186,7 @@ class StratumSession(RPCSession):
                         await log_block_found(
                             chain="LCN",
                             height=lcn_height_for_notif,
-                            block_hash=parent_block_hash_for_auxpow.hex(),
+                            block_hash=lcn_aux_hash,
                             worker=worker,
                             miner_software=getattr(self, "_miner_software", None)
                             or "Unknown",

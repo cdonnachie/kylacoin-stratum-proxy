@@ -3,6 +3,7 @@ FROM ubuntu:24.04 as ubuntu24
 
 # Install dependencies available in Ubuntu 24.04
 RUN apt-get update && apt-get install -y \
+    curl \
     libssl3 \
     libboost-system1.83.0 \
     libboost-filesystem1.83.0 \

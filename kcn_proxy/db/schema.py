@@ -70,6 +70,37 @@ async def init_database():
         """
         )
 
+        # Best shares tracking (top performing shares for insights)
+        await db.execute(
+            """
+            CREATE TABLE IF NOT EXISTS best_shares (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                worker TEXT NOT NULL,
+                chain TEXT NOT NULL,
+                block_height INTEGER,
+                share_difficulty REAL NOT NULL,
+                target_difficulty REAL NOT NULL,
+                difficulty_ratio REAL NOT NULL,
+                timestamp INTEGER NOT NULL,
+                miner_software TEXT
+            )
+        """
+        )
+
+        await db.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_best_shares_difficulty 
+            ON best_shares(chain, share_difficulty DESC)
+        """
+        )
+
+        await db.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_best_shares_timestamp 
+            ON best_shares(timestamp DESC)
+        """
+        )
+
         # Connection events (for uptime tracking)
         await db.execute(
             """
@@ -274,14 +305,15 @@ async def update_share_stats(
                 """
                 INSERT INTO share_stats 
                 (worker, timestamp, shares_submitted, shares_accepted, shares_rejected, avg_difficulty)
-                VALUES (?, ?, 1, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?)
             """,
                 (
                     worker,
                     minute_timestamp,
-                    1 if accepted else 0,
-                    0 if accepted else 1,
-                    difficulty,
+                    1,  # shares_submitted (always 1 for new entry)
+                    1 if accepted else 0,  # shares_accepted
+                    0 if accepted else 1,  # shares_rejected
+                    difficulty,  # avg_difficulty
                 ),
             )
 
@@ -355,7 +387,43 @@ async def get_stats_summary(hours: int = 24):
         accepted = row[0] or 0
         rejected = row[1] or 0
         total_shares = accepted + rejected
-        acceptance_rate = (accepted / total_shares * 100) if total_shares > 0 else 100.0
+        acceptance_rate = (accepted / total_shares * 100) if total_shares > 0 else None
+
+        # All-time accepted blocks by chain (kept indefinitely)
+        cursor = await db.execute(
+            """
+            SELECT chain, COUNT(*) as count
+            FROM blocks
+            WHERE accepted = 1
+            GROUP BY chain
+        """
+        )
+        blocks_all_time_rows = await cursor.fetchall()
+        blocks_all_time = {row[0]: row[1] for row in blocks_all_time_rows}
+
+        # Determine shares since last found (accepted) block (any chain)
+        cursor = await db.execute(
+            """
+            SELECT timestamp FROM blocks
+            WHERE accepted = 1
+            ORDER BY timestamp DESC
+            LIMIT 1
+        """
+        )
+        last_block_row = await cursor.fetchone()
+        shares_since_last_block = None
+        last_block_time = None
+        if last_block_row:
+            last_block_time = last_block_row[0]
+            cursor = await db.execute(
+                """
+                SELECT COALESCE(SUM(shares_accepted + shares_rejected),0)
+                FROM share_stats
+                WHERE timestamp > ?
+            """,
+                (last_block_time,),
+            )
+            shares_since_last_block = (await cursor.fetchone())[0] or 0
 
         return {
             "blocks": blocks_by_chain,
@@ -363,6 +431,10 @@ async def get_stats_summary(hours: int = 24):
             "acceptance_rate": acceptance_rate,
             "total_shares": total_shares,
             "hours": hours,
+            "shares_since_last_block": shares_since_last_block,
+            "last_block_time": last_block_time,
+            "blocks_all_time": blocks_all_time,
+            "total_blocks_all_time": sum(blocks_all_time.values()),
         }
 
 
@@ -393,6 +465,141 @@ async def get_recent_share_stats(worker: str = None, minutes: int = 10):
             """,
                 (cutoff,),
             )
+
+        rows = await cursor.fetchall()
+        return [dict(row) for row in rows]
+
+
+async def record_best_share(
+    worker: str,
+    chain: str,
+    block_height: int,
+    share_difficulty: float,
+    target_difficulty: float,
+    timestamp: int,
+    miner_software: str = None,
+):
+    """Record a potential best share if it qualifies"""
+    try:
+        difficulty_ratio = share_difficulty / target_difficulty
+
+        async with aiosqlite.connect(DB_PATH) as db:
+            # Check if this share qualifies for top 10 for this chain
+            cursor = await db.execute(
+                """
+                SELECT COUNT(*) FROM best_shares 
+                WHERE chain = ? AND share_difficulty > ?
+                """,
+                (chain, share_difficulty),
+            )
+            better_shares = (await cursor.fetchone())[0]
+
+            cursor = await db.execute(
+                """
+                SELECT COUNT(*) FROM best_shares WHERE chain = ?
+                """,
+                (chain,),
+            )
+            total_shares = (await cursor.fetchone())[0]
+
+            # Only store if it's in top 10 or we have less than 10 shares
+            if better_shares < 10:
+                await db.execute(
+                    """
+                    INSERT INTO best_shares 
+                    (worker, chain, block_height, share_difficulty, target_difficulty, 
+                     difficulty_ratio, timestamp, miner_software)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        worker,
+                        chain,
+                        block_height,
+                        share_difficulty,
+                        target_difficulty,
+                        difficulty_ratio,
+                        timestamp,
+                        miner_software,
+                    ),
+                )
+
+                # Keep only top 10 shares per chain
+                if total_shares >= 10:
+                    await db.execute(
+                        """
+                        DELETE FROM best_shares 
+                        WHERE chain = ? AND id NOT IN (
+                            SELECT id FROM best_shares 
+                            WHERE chain = ? 
+                            ORDER BY share_difficulty DESC 
+                            LIMIT 10
+                        )
+                        """,
+                        (chain, chain),
+                    )
+
+                await db.commit()
+                logger.info(
+                    f"Recorded best share: {worker} found {share_difficulty:.2e} difficulty share "
+                    f"({difficulty_ratio:.2f}x target) on {chain}"
+                )
+
+    except Exception as e:
+        logger.error(f"Error recording best share: {e}")
+
+
+async def get_best_shares(chain: str = None, limit: int = 10):
+    """Get best shares, optionally filtered by chain"""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+
+        if chain:
+            cursor = await db.execute(
+                """
+                SELECT * FROM best_shares
+                WHERE chain = ?
+                ORDER BY share_difficulty DESC
+                LIMIT ?
+                """,
+                (chain, limit),
+            )
+        else:
+            cursor = await db.execute(
+                """
+                SELECT * FROM best_shares
+                ORDER BY share_difficulty DESC
+                LIMIT ?
+                """,
+                (limit,),
+            )
+
+        rows = await cursor.fetchall()
+        return [dict(row) for row in rows]
+
+
+async def get_unified_best_shares(limit: int = 10):
+    """Get unified best shares for merged mining - shows KCN, LCN ratios for the same shares"""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+
+        # Get shares grouped by timestamp and worker, showing all chain ratios
+        cursor = await db.execute(
+            """
+            SELECT 
+                l.worker,
+                l.share_difficulty,
+                l.timestamp,
+                l.miner_software,
+                l.difficulty_ratio as kcn_ratio,
+                m.difficulty_ratio as lcn_ratio
+            FROM best_shares l
+            LEFT JOIN best_shares m ON l.timestamp = m.timestamp AND l.worker = m.worker AND m.chain = 'LCN'
+            WHERE l.chain = 'KCN'
+            ORDER BY l.share_difficulty DESC
+            LIMIT ?
+            """,
+            (limit,),
+        )
 
         rows = await cursor.fetchall()
         return [dict(row) for row in rows]

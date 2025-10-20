@@ -88,7 +88,10 @@
           <div class="unit">Connected</div>
         </div>
 
-        <div class="stat-card">
+        <div
+          class="stat-card kcn-blocks-card"
+          title="Blocks found in the last 24h and all-time total (accepted only)"
+        >
           <h3>
             <img
               src="/static/kylacoin-logo.png"
@@ -96,13 +99,17 @@
               class="chain-logo"
               onerror="this.style.display='none'"
             />
-            KCN Blocks (24h)
+            KCN Blocks
           </h3>
           <div class="value" id="kcn-blocks">0</div>
-          <div class="unit">Found</div>
+          <div class="unit">24h</div>
+          <div class="subtext" id="kcn-blocks-alltime">All time: 0</div>
         </div>
 
-        <div class="stat-card">
+        <div
+          class="stat-card lcn-blocks-card"
+          title="Blocks found in the last 24h and all-time total (accepted only)"
+        >
           <h3>
             <img
               src="/static/lyncoin-logo.png"
@@ -110,10 +117,11 @@
               class="chain-logo"
               onerror="this.style.display='none'"
             />
-            LCN Blocks (24h)
+            LCN Blocks
           </h3>
           <div class="value" id="lcn-blocks">0</div>
-          <div class="unit">Found</div>
+          <div class="unit">24h</div>
+          <div class="subtext" id="lcn-blocks-alltime">All time: 0</div>
         </div>
 
         <div
@@ -121,8 +129,50 @@
           title="Accepted vs total submitted shares over last 24h"
         >
           <h3>Acceptance Rate</h3>
-          <div class="value" id="acceptance-rate">100.0</div>
+          <div class="value" id="acceptance-rate">—</div>
           <div class="unit">%</div>
+        </div>
+
+        <div
+          class="stat-card kcn-network-card"
+          title="Current KCN blockchain height and network difficulty"
+        >
+          <h3>
+            <img
+              src="/static/kylacoin-logo.png"
+              alt="KCN"
+              class="chain-logo"
+              onerror="this.style.display='none'"
+            />
+            KCN Network
+          </h3>
+          <div class="value" id="kcn-height" style="font-size: 1.8em">—</div>
+          <div class="unit">Block Height</div>
+          <div class="subtext" style="margin-top: 8px">
+            <span style="opacity: 0.7">Difficulty:</span>
+            <span id="kcn-difficulty" style="font-weight: 600">—</span>
+          </div>
+        </div>
+
+        <div
+          class="stat-card lcn-network-card"
+          title="Current LCN blockchain height and network difficulty"
+        >
+          <h3>
+            <img
+              src="/static/lyncoin-logo.png"
+              alt="LCN"
+              class="chain-logo"
+              onerror="this.style.display='none'"
+            />
+            LCN Network
+          </h3>
+          <div class="value" id="lcn-height" style="font-size: 1.8em">—</div>
+          <div class="unit">Block Height</div>
+          <div class="subtext" style="margin-top: 8px">
+            <span style="opacity: 0.7">Difficulty:</span>
+            <span id="lcn-difficulty" style="font-weight: 600">—</span>
+          </div>
         </div>
 
         <div class="stat-card">
@@ -130,18 +180,59 @@
           <div class="value" id="total-shares">0</div>
           <div class="unit">24h</div>
         </div>
+        <div
+          class="stat-card"
+          title="Shares submitted (accepted + rejected) since the last found block on either chain"
+        >
+          <h3>Shares Since Block</h3>
+          <div class="value" id="shares-since-block">—</div>
+          <div class="unit" id="shares-since-block-age">—</div>
+        </div>
+        <div
+          class="stat-card"
+          title="Estimated time to find a block based on current EMA hashrate and network difficulty (statistical average)"
+        >
+          <h3>Time To Find</h3>
+          <div
+            style="
+              display: flex;
+              flex-direction: column;
+              gap: 8px;
+              margin-top: 8px;
+            "
+          >
+            <div style="display: flex; align-items: baseline; gap: 8px">
+              <img
+                src="/static/kylacoin-logo.png"
+                alt="KCN"
+                class="chain-logo"
+                style="width: 16px; height: 16px; vertical-align: middle"
+                onerror="this.style.display='none'"
+              />
+              <span style="font-size: 0.7em; opacity: 0.7; min-width: 35px"
+                >KCN:</span
+              >
+              <span id="ttf-kcn" class="value" style="font-size: 1.4em">—</span>
+            </div>
+            <div style="display: flex; align-items: baseline; gap: 8px">
+              <img
+                src="/static/lyncoin-logo.png"
+                alt="LCN"
+                class="chain-logo"
+                style="width: 16px; height: 16px; vertical-align: middle"
+                onerror="this.style.display='none'"
+              />
+              <span style="font-size: 0.7em; opacity: 0.7; min-width: 35px"
+                >LCN:</span
+              >
+              <span id="ttf-lcn" class="value" style="font-size: 1.4em">—</span>
+            </div>
+          </div>
+          <div class="subtext" style="margin-top: 8px">Statistical average</div>
+        </div>
       </div>
 
-      <div
-        class="toolbar"
-        style="
-          display: flex;
-          flex-wrap: wrap;
-          gap: 18px;
-          align-items: center;
-          margin: -10px 0 20px 0;
-        "
-      >
+      <div class="toolbar">
         <label
           class="worker-toggle"
           style="
@@ -170,39 +261,216 @@
         <span style="font-size: 0.7em; opacity: 0.55"
           >(Toggle to show full wallet.worker identifiers)</span
         >
-        <button
-          id="flush-hashrate"
-          style="
-            margin-left: auto;
-            background: rgba(255, 255, 255, 0.15);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            color: #fff;
-            padding: 6px 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.7em;
-            letter-spacing: 0.5px;
-          "
+        <div class="maintenance-group" aria-label="Maintenance actions">
+          <button
+            id="flush-hashrate"
+            class="toolbar-btn"
+            title="Clear rolling window + EMA so fresh hashrate accumulates"
+          >
+            Flush Hashrate Window
+          </button>
+          <div
+            id="fix-lcn-group"
+            style="display: none; align-items: center; gap: 10px"
+          >
+            <button
+              id="fix-lcn-hashes"
+              class="toolbar-btn"
+              title="Correct historical LCN block hashes using node RPC"
+            >
+              Fix LCN Hashes
+            </button>
+            <label class="mini-option" title="Run without writing DB changes">
+              <input type="checkbox" id="fix-lcn-dryrun" checked />Dry‑run
+            </label>
+            <label
+              class="mini-option"
+              for="fix-lcn-limit"
+              title="Limit number of historical rows to process (blank = all)"
+            >
+              Limit
+              <input
+                type="number"
+                id="fix-lcn-limit"
+                min="1"
+                placeholder="All"
+              />
+            </label>
+            <span
+              id="fix-lcn-status"
+              class="maintenance-status"
+              aria-live="polite"
+            ></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="explorers" aria-label="Explorer quick links">
+        <a
+          href="https://kcnxp.com/"
+          target="_blank"
+          rel="noopener"
+          title="KCN Explorer Home"
+          ><span class="chain-tag">KCN</span>Explorer</a
         >
-          Flush Hashrate Window
-        </button>
+        <a
+          class="lcn"
+          href="https://lcnxp.com/"
+          target="_blank"
+          rel="noopener"
+          title="LCN Explorer Home"
+          ><span class="chain-tag">LCN</span>Explorer</a
+        >
+      </div>
+
+      <!-- Daemon Status Section -->
+      <div class="section">
+        <h2
+          style="cursor: pointer; user-select: none"
+          onclick="toggleDaemonStatus()"
+        >
+          <span id="daemon-toggle-icon">▼</span> Blockchain Daemon Status
+        </h2>
+        <div id="daemon-status-content">
+          <div class="stats-grid" style="margin-top: 16px">
+            <!-- Kylacoin Daemon -->
+            <div class="stat-card kcn-network-card">
+              <h3>
+                <img
+                  src="/static/kylacoin-logo.png"
+                  alt="KCN"
+                  class="chain-logo"
+                  onerror="this.style.display='none'"
+                />
+                Kylacoin Node
+              </h3>
+              <div
+                style="margin-top: 12px; font-size: 0.85em; line-height: 1.6"
+              >
+                <div
+                  style="
+                    display: flex;
+                    justify-content: space-between;
+                    margin-bottom: 8px;
+                  "
+                >
+                  <span style="opacity: 0.7">Status:</span>
+                  <span id="kcn-daemon-status" style="font-weight: 600">—</span>
+                </div>
+                <div
+                  style="
+                    display: flex;
+                    justify-content: space-between;
+                    margin-bottom: 8px;
+                  "
+                >
+                  <span style="opacity: 0.7">Sync:</span>
+                  <span id="kcn-sync-progress" style="font-weight: 600">—</span>
+                </div>
+                <div
+                  style="
+                    display: flex;
+                    justify-content: space-between;
+                    margin-bottom: 8px;
+                  "
+                >
+                  <span style="opacity: 0.7">Connections:</span>
+                  <span id="kcn-connections" style="font-weight: 600">—</span>
+                </div>
+                <div style="display: flex; justify-content: space-between">
+                  <span style="opacity: 0.7">Version:</span>
+                  <span id="kcn-version" style="font-weight: 600">—</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Lyncoin Daemon -->
+            <div class="stat-card lcn-network-card">
+              <h3>
+                <img
+                  src="/static/lyncoin-logo.png"
+                  alt="LCN"
+                  class="chain-logo"
+                  onerror="this.style.display='none'"
+                />
+                Lyncoin Node
+              </h3>
+              <div
+                style="margin-top: 12px; font-size: 0.85em; line-height: 1.6"
+              >
+                <div
+                  style="
+                    display: flex;
+                    justify-content: space-between;
+                    margin-bottom: 8px;
+                  "
+                >
+                  <span style="opacity: 0.7">Status:</span>
+                  <span id="lcn-daemon-status" style="font-weight: 600">—</span>
+                </div>
+                <div
+                  style="
+                    display: flex;
+                    justify-content: space-between;
+                    margin-bottom: 8px;
+                  "
+                >
+                  <span style="opacity: 0.7">Sync:</span>
+                  <span id="lcn-sync-progress" style="font-weight: 600">—</span>
+                </div>
+                <div
+                  style="
+                    display: flex;
+                    justify-content: space-between;
+                    margin-bottom: 8px;
+                  "
+                >
+                  <span style="opacity: 0.7">Connections:</span>
+                  <span id="lcn-connections" style="font-weight: 600">—</span>
+                </div>
+                <div style="display: flex; justify-content: space-between">
+                  <span style="opacity: 0.7">Version:</span>
+                  <span id="lcn-version" style="font-weight: 600">—</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="section">
-        <h2><span class="live-indicator"></span>Active Miners</h2>
+        <h2>
+          <span class="live-indicator"></span>Active Miners
+          <span
+            id="vardiff-badge"
+            class="badge"
+            style="
+              display: none;
+              margin-left: 12px;
+              font-size: 0.6em;
+              padding: 4px 10px;
+              background: #057c32;
+              vertical-align: middle;
+            "
+            title="Variable difficulty is enabled - difficulty adjusts per miner to target 15s share intervals"
+            >VarDiff: Enabled</span
+          >
+        </h2>
         <div class="table-wrapper">
           <table id="miners-table" aria-label="Active Miners">
             <thead>
               <tr>
                 <th>Worker</th>
                 <th>Software</th>
+                <th class="col-num">Difficulty</th>
                 <th class="col-num">Hashrate</th>
+                <th class="col-num">Share Intvl</th>
                 <th class="col-num">Uptime</th>
               </tr>
             </thead>
             <tbody id="miners-body">
               <tr>
-                <td colspan="4" class="no-data">Loading...</td>
+                <td colspan="6" class="no-data">Loading...</td>
               </tr>
             </tbody>
           </table>
@@ -212,6 +480,7 @@
       <div class="section">
         <h2>🎉 Recent Blocks</h2>
         <div
+          id="blocks-container"
           class="dual-blocks"
           style="
             display: grid;
@@ -219,7 +488,7 @@
             grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
           "
         >
-          <div class="subsection">
+          <div class="subsection kcn-blocks-card">
             <h3
               style="
                 margin: 0 0 10px 0;
@@ -258,7 +527,7 @@
               </table>
             </div>
           </div>
-          <div class="subsection">
+          <div class="subsection lcn-blocks-card">
             <h3
               style="
                 margin: 0 0 10px 0;
@@ -301,6 +570,77 @@
       </div>
 
       <div class="section">
+        <div
+          style="
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+          "
+        >
+          <h2>🏆 Best Shares</h2>
+          <button
+            id="clear-best-shares"
+            class="toolbar-btn"
+            title="Clear all best shares and start tracking fresh"
+            style="margin: 0; font-size: 0.9em"
+          >
+            Clear
+          </button>
+        </div>
+        <div class="table-wrapper">
+          <table id="best-shares-table" aria-label="Best Shares">
+            <thead>
+              <tr>
+                <th class="col-num">Rank</th>
+                <th>Difficulty</th>
+                <th>KCN Ratio</th>
+                <th>LCN Ratio</th>
+                <th>Worker</th>
+                <th class="col-num">Time</th>
+              </tr>
+            </thead>
+            <tbody id="best-shares-body">
+              <tr>
+                <td colspan="7" class="no-data">Loading...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div
+          style="
+            margin-top: 12px;
+            padding: 12px 16px;
+            background: var(--card-highlight);
+            border-radius: 6px;
+            font-size: 0.8em;
+            line-height: 1.5;
+            color: var(--text-dim);
+            border-left: 3px solid var(--badge-kcn);
+          "
+        >
+          <strong style="color: var(--text)">💡 Ratio Explanation:</strong>
+          <div style="margin-top: 8px">
+            The ratio shows how your share difficulty compares to each chain's
+            network target:
+            <ul style="margin: 8px 0 8px 20px; padding: 0">
+              <li>
+                <strong>Ratio < 1.0</strong> (e.g., "0.28x", "0.42x"): Share is
+                below network target—accepted as a regular share
+              </li>
+              <li>
+                <strong>Ratio ≥ 1.0</strong> (e.g., "1.0x", "2.97x"): Share
+                meets or exceeds network difficulty—submitted as a block!
+              </li>
+            </ul>
+            In merged mining, both chains receive your hash submissions
+            simultaneously. Any share that reaches or exceeds a chain's target
+            difficulty is submitted as a block to that chain. The higher the
+            ratio above 1.0, the better the share quality.
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
         <h2>💰 Payout Addresses</h2>
         <div class="table-wrapper">
           <table aria-label="Payout Addresses">
@@ -320,12 +660,81 @@
         </div>
       </div>
 
+      <div
+        class="status-bar"
+        id="status-bar"
+        style="
+          margin-top: 30px;
+          padding: 16px 24px;
+          background: rgba(255, 255, 255, 0.05);
+          border-radius: 8px;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 24px;
+          align-items: center;
+          font-size: 0.85em;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+        "
+      >
+        <div style="font-weight: 600; opacity: 0.7; margin-right: 8px">
+          System Configuration:
+        </div>
+        <div id="status-vardiff" class="status-item" style="display: none">
+          <span style="color: #05a532; margin-right: 4px">●</span>
+          <span title="Variable difficulty is enabled">VarDiff</span>
+          <span
+            class="status-detail"
+            style="opacity: 0.6; margin-left: 6px; font-size: 0.9em"
+          ></span>
+        </div>
+        <div id="status-zmq" class="status-item" style="display: none">
+          <span style="color: #05a532; margin-right: 4px">●</span>
+          <span title="ZeroMQ block notifications enabled">ZMQ</span>
+        </div>
+        <div
+          id="status-notifications"
+          class="status-item"
+          style="display: none"
+        >
+          <span style="color: #05a532; margin-right: 4px">●</span>
+          <span>Notifications</span>
+          <span
+            class="status-detail"
+            style="opacity: 0.6; margin-left: 6px; font-size: 0.9em"
+          ></span>
+        </div>
+        <div id="status-database" class="status-item" style="display: none">
+          <span style="color: #05a532; margin-right: 4px">●</span>
+          <span title="Database logging enabled">Database</span>
+        </div>
+        <div id="status-stratum" class="status-item" style="opacity: 0.7">
+          <span style="opacity: 0.5; margin-right: 4px">•</span>
+          <span title="Stratum server port">Port:</span>
+          <span class="status-detail" style="margin-left: 4px; font-weight: 500"
+            >—</span
+          >
+        </div>
+        <div id="status-loading" style="opacity: 0.5; font-style: italic">
+          Loading configuration...
+        </div>
+      </div>
+
       <div class="update-time">
         Last updated: <span id="last-update">Never</span>
       </div>
     </div>
 
     <script>
+      // Insert floating theme toggle at runtime (ensures CSS loaded)
+      (function createFloatingThemeToggle() {
+        const fab = document.createElement("button");
+        fab.id = "theme-toggle";
+        fab.className = "theme-toggle-fab";
+        fab.innerHTML =
+          '<span class="icon" aria-hidden="true">🌙</span><span class="label">Light Mode</span>';
+        document.body.appendChild(fab);
+      })();
+
       function formatHashrate(miner) {
         // Use the new hashrate_display field if available, otherwise fallback to old format
         if (miner.hashrate_display) {
@@ -372,6 +781,38 @@
         return hash.substring(0, 10) + "..." + hash.substring(hash.length - 10);
       }
 
+      function formatDifficulty(difficulty) {
+        if (!difficulty || difficulty === 0) return "—";
+        if (difficulty >= 1_000_000_000) {
+          return (difficulty / 1_000_000_000).toFixed(2) + " G";
+        }
+        if (difficulty >= 1_000_000) {
+          return (difficulty / 1_000_000).toFixed(2) + " M";
+        }
+        if (difficulty >= 1_000) {
+          return (difficulty / 1_000).toFixed(2) + " K";
+        }
+        return difficulty.toFixed(8);
+      }
+
+      function formatRatio(ratio) {
+        if (!ratio || ratio <= 0) return "-";
+
+        // For very small ratios (< 0.01), show "1 in X" format
+        if (ratio < 0.01) {
+          const inverse = Math.round(1 / ratio);
+          if (inverse >= 1000000) {
+            return `1 in ${(inverse / 1000000).toFixed(1)}M`;
+          } else if (inverse >= 1000) {
+            return `1 in ${(inverse / 1000).toFixed(0)}K`;
+          } else {
+            return `1 in ${inverse}`;
+          }
+        }
+
+        return `${ratio.toFixed(2)}x`;
+      }
+
       function copyToClipboard(text, button) {
         if (!navigator.clipboard) {
           // Fallback
@@ -397,6 +838,90 @@
         }
       }
 
+      // Toggle daemon status section visibility
+      function toggleDaemonStatus() {
+        const content = document.getElementById("daemon-status-content");
+        const header = document.querySelector(
+          ".section h2[onclick='toggleDaemonStatus()']"
+        );
+        if (!content || !header) return;
+
+        if (content.style.display === "none") {
+          content.style.display = "grid";
+          header.textContent = "▼ Blockchain Daemon Status";
+        } else {
+          content.style.display = "none";
+          header.textContent = "▶ Blockchain Daemon Status";
+        }
+      }
+
+      // Update daemon status information
+      async function updateDaemonStatus() {
+        try {
+          const response = await fetch("/api/daemon-status");
+          if (!response.ok) throw new Error("Failed to fetch daemon status");
+
+          const data = await response.json();
+
+          // Update KCN daemon
+          updateDaemonCard("kcn", data.kcn);
+
+          // Update LCN daemon
+          updateDaemonCard("lcn", data.lcn);
+        } catch (error) {
+          console.error("Error updating daemon status:", error);
+          // Show error state
+          ["kcn", "lcn"].forEach((chain) => {
+            const statusEl = document.getElementById(`${chain}-daemon-status`);
+            if (statusEl) statusEl.textContent = "Error";
+          });
+        }
+      }
+
+      // Helper function to update individual daemon card
+      function updateDaemonCard(chain, info) {
+        if (!info) return;
+
+        // Update status
+        const statusEl = document.getElementById(`${chain}-daemon-status`);
+        if (statusEl) {
+          statusEl.textContent = info.status || "—";
+          // Set color based on status
+          if (info.status === "Connected") {
+            statusEl.style.color = "#2ecc71";
+          } else if (info.status === "Timeout" || info.status === "Offline") {
+            statusEl.style.color = "#ff6b6b";
+          } else {
+            statusEl.style.color = "#f1c40f";
+          }
+        }
+
+        // Update sync progress
+        const syncEl = document.getElementById(`${chain}-sync-progress`);
+        if (syncEl) {
+          if (info.status === "Connected") {
+            syncEl.textContent = `${info.sync || "—"} (${
+              info.blocks || 0
+            } blocks)`;
+          } else {
+            syncEl.textContent = "—";
+          }
+        }
+
+        // Update connections
+        const connEl = document.getElementById(`${chain}-connections`);
+        if (connEl) {
+          connEl.textContent =
+            info.connections !== undefined ? `${info.connections}` : "—";
+        }
+
+        // Update version
+        const versionEl = document.getElementById(`${chain}-version`);
+        if (versionEl) {
+          versionEl.textContent = info.version || "—";
+        }
+      }
+
       // Show only the worker name (suffix) to reduce width; keep full in tooltip
       let workerCompactMode = true;
 
@@ -412,10 +937,47 @@
         return full;
       }
 
+      function formatTTF(seconds) {
+        if (!seconds || seconds <= 0) return "—";
+
+        const MINUTE = 60;
+        const HOUR = 60 * MINUTE;
+        const DAY = 24 * HOUR;
+        const WEEK = 7 * DAY;
+        const MONTH = 30 * DAY; // Approximate
+
+        if (seconds < MINUTE) {
+          return `${Math.round(seconds)}s`;
+        } else if (seconds < HOUR) {
+          const mins = seconds / MINUTE;
+          return `${mins.toFixed(1)}m`;
+        } else if (seconds < DAY) {
+          const hours = seconds / HOUR;
+          return `${hours.toFixed(1)}h`;
+        } else if (seconds < WEEK) {
+          const days = seconds / DAY;
+          return `${days.toFixed(1)}d`;
+        } else if (seconds < MONTH) {
+          const weeks = seconds / WEEK;
+          return `${weeks.toFixed(1)}w`;
+        } else {
+          const months = seconds / MONTH;
+          return `${months.toFixed(1)}mo`;
+        }
+      }
+
       async function updateMiners() {
         try {
           const response = await fetch("/api/miners");
           const data = await response.json();
+
+          // Update VarDiff badge visibility
+          const vardiffBadge = document.getElementById("vardiff-badge");
+          if (vardiffBadge) {
+            vardiffBadge.style.display = data.vardiff_enabled
+              ? "inline-block"
+              : "none";
+          }
 
           const instantMode = document.getElementById(
             "mode-toggle-hashrate"
@@ -457,31 +1019,63 @@
           const tbody = document.getElementById("miners-body");
           if (data.miners.length === 0) {
             tbody.innerHTML =
-              '<tr><td colspan="4" class="no-data">No miners connected</td></tr>';
+              '<tr><td colspan="6" class="no-data">No miners connected</td></tr>';
           } else {
             tbody.innerHTML = data.miners
-              .map(
-                (miner) => `
-                        <tr>
-                            <td title="${miner.worker}">${displayWorker(
+              .map((miner) => {
+                const diffCell =
+                  miner.assigned_difficulty != null
+                    ? miner.assigned_difficulty.toFixed(10)
+                    : "—";
+                const hashrateTooltip = [
+                  `Assigned diff: ${miner.assigned_difficulty ?? "n/a"}`,
+                  `Instant: ${(miner.hashrate_instant_hs ?? 0).toFixed(2)} H/s`,
+                  `EMA: ${(miner.hashrate_ema_hs ?? 0).toFixed(2)} H/s`,
+                  `Shares: ${miner.shares_in_window}`,
+                  `Rel Err: ±${((miner.rel_error_est || 0) * 100).toFixed(1)}%`,
+                ].join("&#10;");
+                let shareIntvlDisplay = "—";
+                let shareIntvlTooltip = "No interval data yet";
+                if (
+                  miner.share_blended_interval != null &&
+                  miner.share_blended_interval > 0 &&
+                  miner.target_interval
+                ) {
+                  const blended = miner.share_blended_interval;
+                  const target = miner.target_interval;
+                  const pct = (blended / target) * 100;
+                  const avg = miner.share_avg_interval;
+                  const ema = miner.share_ema_interval;
+                  shareIntvlDisplay =
+                    `${blended.toFixed(1)}s` +
+                    '<br/><span style="opacity:.7;font-size:.7em">' +
+                    pct.toFixed(0) +
+                    "%</span>";
+                  shareIntvlTooltip = [
+                    `Target: ${target.toFixed(1)}s`,
+                    avg ? `Avg: ${avg.toFixed(1)}s` : null,
+                    ema ? `EMA: ${ema.toFixed(1)}s` : null,
+                    `Blended: ${blended.toFixed(1)}s (${pct.toFixed(0)}%)`,
+                  ]
+                    .filter(Boolean)
+                    .join("&#10;");
+                }
+                return `
+                <tr>
+                  <td title="${miner.worker}">${displayWorker(
                   miner.worker
                 )}</td>
-                            <td>${miner.software}</td>
-                            <td class="col-num" title="Assigned diff: ${
-                              miner.assigned_difficulty ?? "n/a"
-                            }\nInstant: ${miner.hashrate_instant_hs?.toFixed(
-                  2
-                )} H/s\nEMA: ${miner.hashrate_ema_hs?.toFixed(
-                  2
-                )} H/s\nShares: ${miner.shares_in_window}\nRel Err: ±${(
-                  (miner.rel_error_est || 0) * 100
-                ).toFixed(1)}%">${formatHashrate(miner)}</td>
-                            <td class="col-num">${formatUptime(
-                              miner.uptime_seconds
-                            )}</td>
-                        </tr>
-                    `
-              )
+                  <td>${miner.software || ""}</td>
+                  <td class=\"col-num\" title=\"Assigned difficulty (raw value)\">${diffCell}</td>
+                  <td class=\"col-num\" title=\"${hashrateTooltip}\">${formatHashrate(
+                  miner
+                )}</td>
+                  <td class=\"col-num\" title=\"${shareIntvlTooltip}\">${shareIntvlDisplay}</td>
+                  <td class=\"col-num\">${formatUptime(
+                    miner.uptime_seconds || 0
+                  )}</td>
+                </tr>`;
+              })
               .join("");
           }
         } catch (error) {
@@ -498,10 +1092,95 @@
             data.blocks.KCN || 0;
           document.getElementById("lcn-blocks").textContent =
             data.blocks.LCN || 0;
+          if (data.blocks_all_time) {
+            const kEl = document.getElementById("kcn-blocks-alltime");
+            const lEl = document.getElementById("lcn-blocks-alltime");
+            if (kEl)
+              kEl.textContent =
+                "All time: " + (data.blocks_all_time.KCN || 0).toLocaleString();
+            if (lEl)
+              lEl.textContent =
+                "All time: " + (data.blocks_all_time.LCN || 0).toLocaleString();
+          }
           document.getElementById("acceptance-rate").textContent =
-            data.acceptance_rate.toFixed(1);
+            data.acceptance_rate !== null
+              ? data.acceptance_rate.toFixed(2)
+              : "—";
           document.getElementById("total-shares").textContent =
             data.total_shares.toLocaleString();
+          // Network heights & difficulty (KCN/LCN)
+          try {
+            const kHeight = data.current_height_kcn;
+            const lHeight = data.current_height_lcn;
+            const kDiff = data.current_kcn_difficulty;
+            const lDiff = data.current_lcn_difficulty;
+
+            // Update KCN network card
+            const kHeightEl = document.getElementById("kcn-height");
+            const kDiffEl = document.getElementById("kcn-difficulty");
+            if (kHeightEl && kHeight != null) {
+              kHeightEl.textContent = kHeight;
+              kHeightEl.title = `KCN blockchain height: ${kHeight}`;
+            }
+            if (kDiffEl && kDiff != null) {
+              kDiffEl.textContent = kDiff.toFixed(6);
+              kDiffEl.title = `KCN network difficulty: ${kDiff}`;
+            }
+
+            // Update LCN network card
+            const lHeightEl = document.getElementById("lcn-height");
+            const lDiffEl = document.getElementById("lcn-difficulty");
+            if (lHeightEl && lHeight != null) {
+              lHeightEl.textContent = lHeight;
+              lHeightEl.title = `LCN blockchain height: ${lHeight}`;
+            }
+            if (lDiffEl && lDiff != null) {
+              lDiffEl.textContent = lDiff.toFixed(6);
+              lDiffEl.title = `LCN network difficulty: ${lDiff}`;
+            }
+          } catch (e) {
+            /* ignore */
+          }
+          if (data.shares_since_last_block != null) {
+            document.getElementById("shares-since-block").textContent =
+              data.shares_since_last_block.toLocaleString();
+            if (data.last_block_time) {
+              const ageSec = Math.max(
+                0,
+                Math.floor(Date.now() / 1000 - data.last_block_time)
+              );
+              let ageStr;
+              if (ageSec < 60) ageStr = ageSec + "s";
+              else if (ageSec < 3600) ageStr = Math.floor(ageSec / 60) + "m";
+              else if (ageSec < 86400) ageStr = Math.floor(ageSec / 3600) + "h";
+              else ageStr = Math.floor(ageSec / 86400) + "d";
+              const ageEl = document.getElementById("shares-since-block-age");
+              ageEl.textContent = ageStr;
+              ageEl.title = new Date(data.last_block_time * 1000).toISOString();
+            } else {
+              document.getElementById("shares-since-block-age").textContent =
+                "—";
+            }
+          } else {
+            document.getElementById("shares-since-block").textContent = "—";
+            document.getElementById("shares-since-block-age").textContent = "—";
+          }
+
+          // Update TTF estimates
+          const ttfKcnEl = document.getElementById("ttf-kcn");
+          const ttfLcnEl = document.getElementById("ttf-lcn");
+          if (ttfKcnEl) {
+            ttfKcnEl.textContent = formatTTF(data.ttf_kcn_seconds);
+            ttfKcnEl.title = data.ttf_kcn_seconds
+              ? `${Math.round(data.ttf_kcn_seconds).toLocaleString()} seconds`
+              : "No hashrate data";
+          }
+          if (ttfLcnEl) {
+            ttfLcnEl.textContent = formatTTF(data.ttf_lcn_seconds);
+            ttfLcnEl.title = data.ttf_lcn_seconds
+              ? `${Math.round(data.ttf_lcn_seconds).toLocaleString()} seconds`
+              : "No hashrate data";
+          }
         } catch (error) {
           console.error("Error fetching stats:", error);
         }
@@ -520,12 +1199,20 @@
 
           function renderBlockRow(block) {
             const absTime = new Date(block.timestamp * 1000).toISOString();
+            const explorerBase =
+              block.chain === "KCN"
+                ? "https://kcnxp.com/block/"
+                : "https://lcnxp.com/block/";
             return `
               <tr>
                 <td class="col-num">${block.height}</td>
                 <td class="hash-short">
                   <div class="copy-wrap" title="${block.block_hash}">
-                    <span>${shortenHash(block.block_hash)}</span>
+                    <a class="hash-link" href="${
+                      explorerBase + block.block_hash
+                    }" target="_blank" rel="noopener" aria-label="View block on explorer">${shortenHash(
+              block.block_hash
+            )}</a>
                     <button class="copy-btn" onclick="copyToClipboard('${
                       block.block_hash
                     }', this)" aria-label="Copy block hash">Copy</button>
@@ -556,6 +1243,69 @@
         }
       }
 
+      async function updateBestShares() {
+        try {
+          const response = await fetch("/api/best-shares");
+          const data = await response.json();
+
+          const tbody = document.getElementById("best-shares-body");
+
+          function renderBestShareRow(share, index) {
+            const absTime = new Date(share.timestamp * 1000).toLocaleString();
+
+            // Extract worker name (part after last dot, or first 8 chars if no dot)
+            let workerName = share.worker;
+            if (share.worker.includes(".")) {
+              workerName = share.worker.split(".").pop();
+            } else {
+              workerName = share.worker.substring(0, 8);
+            }
+
+            // Rank styling for top 3
+            let rankDisplay = (index + 1).toString();
+            let rankClass = "";
+            if (index === 0) {
+              rankDisplay = "🥇";
+              rankClass = "rank-gold";
+            } else if (index === 1) {
+              rankDisplay = "🥈";
+              rankClass = "rank-silver";
+            } else if (index === 2) {
+              rankDisplay = "🥉";
+              rankClass = "rank-bronze";
+            }
+
+            // Format ratios with appropriate styling
+            const kcnRatio = formatRatio(share.kcn_ratio);
+            const lcnRatio = formatRatio(share.lcn_ratio);
+
+            return `
+              <tr>
+                <td class="col-num ${rankClass}">${rankDisplay}</td>
+                <td title="${share.share_difficulty}">${formatDifficulty(
+              share.share_difficulty
+            )}</td>
+                <td title="KCN target ratio" class="ratio-kcn">${kcnRatio}</td>
+                <td title="LCN target ratio" class="ratio-lcn">${lcnRatio}</td>
+                <td class="worker-name" title="${share.worker}">
+                  <span class="worker-text">${workerName}</span>
+                </td>
+                <td class="col-num" title="${absTime}">${formatTime(
+              share.timestamp
+            )}</td>
+              </tr>`;
+          }
+
+          tbody.innerHTML = data.shares?.length
+            ? data.shares.map(renderBestShareRow).join("")
+            : '<tr><td colspan="7" class="no-data">No shares yet</td></tr>';
+        } catch (error) {
+          console.error("Error fetching best shares:", error);
+          document.getElementById("best-shares-body").innerHTML =
+            '<tr><td colspan="7" class="no-data">Error loading best shares</td></tr>';
+        }
+      }
+
       async function updatePayouts() {
         try {
           const response = await fetch("/api/payouts");
@@ -573,9 +1323,11 @@
                             <td><span class="badge badge-kcn"><img src="/static/kylacoin-logo.png" alt="" class="chain-logo" onerror="this.style.display='none'">KCN</span></td>
                             <td class="hash-short"><div class="copy-wrap" title="${
                               data.kcn_address
-                            }"><span>${shortenHash(
+                            }"><a class="hash-link" href="https://kcnxp.com/address/${
               data.kcn_address
-            )}</span><button class="copy-btn" onclick="copyToClipboard('${
+            }" target="_blank" rel="noopener" aria-label="View KCN address on explorer">${shortenHash(
+              data.kcn_address
+            )}</a><button class="copy-btn" onclick="copyToClipboard('${
               data.kcn_address
             }', this)" aria-label="Copy KCN address">Copy</button></div></td>
                             <td>${source}</td>
@@ -598,9 +1350,11 @@
                             <td><span class="badge badge-lcn"><img src="/static/lyncoin-logo.png" alt="" class="chain-logo" onerror="this.style.display='none'">LCN</span></td>
               <td class="hash-short"><div class="copy-wrap" title="${
                 data.lcn_address
-              }"><span>${shortenHash(
+              }"><a class="hash-link" href="https://lcnxp.com/address/${
               data.lcn_address
-            )}</span><button class="copy-btn" onclick="copyToClipboard('${
+            }" target="_blank" rel="noopener" aria-label="View LCN address on explorer">${shortenHash(
+              data.lcn_address
+            )}</a><button class="copy-btn" onclick="copyToClipboard('${
               data.lcn_address
             }', this)" aria-label="Copy LCN address">Copy</button></div></td>
                             <td>Config (.env)</td>
@@ -624,20 +1378,123 @@
         }
       }
 
+      async function checkLcnHashFixStatus() {
+        try {
+          const response = await fetch("/api/lcn_hash_fix_status");
+          const status = await response.json();
+
+          const fixGroup = document.getElementById("fix-lcn-group");
+          const fixBtn = document.getElementById("fix-lcn-hashes");
+
+          if (status.show_button && status.bad_hash_count > 0) {
+            // Show the fix controls
+            fixGroup.style.display = "flex";
+            // Update button text with count
+            fixBtn.textContent = `Fix LCN Hashes (${status.bad_hash_count})`;
+            fixBtn.title = `Correct ${status.bad_hash_count} historical LCN block hashes using node RPC`;
+          } else {
+            // Hide the fix controls (already fixed or not needed)
+            fixGroup.style.display = "none";
+          }
+        } catch (error) {
+          console.error("Error checking LCN hash fix status:", error);
+          // On error, hide the controls
+          const fixGroup = document.getElementById("fix-lcn-group");
+          if (fixGroup) fixGroup.style.display = "none";
+        }
+      }
+
+      async function updateSystemConfig() {
+        try {
+          const response = await fetch("/api/system/config");
+          const config = await response.json();
+
+          // Hide loading indicator
+          const loadingEl = document.getElementById("status-loading");
+          if (loadingEl) loadingEl.style.display = "none";
+
+          // VarDiff status
+          const vardiffEl = document.getElementById("status-vardiff");
+          if (config.vardiff?.enabled) {
+            vardiffEl.style.display = "flex";
+            const detail = vardiffEl.querySelector(".status-detail");
+            detail.textContent = `(target: ${config.vardiff.target_interval}s)`;
+            detail.title = `Min: ${config.vardiff.min_difficulty}, Max: ${config.vardiff.max_difficulty}`;
+          }
+
+          // ZMQ status
+          const zmqEl = document.getElementById("status-zmq");
+          if (config.zmq?.enabled) {
+            zmqEl.style.display = "flex";
+          }
+
+          // Notifications status
+          const notifEl = document.getElementById("status-notifications");
+          const notifServices = [];
+          if (config.notifications?.discord) notifServices.push("Discord");
+          if (config.notifications?.telegram) notifServices.push("Telegram");
+          if (notifServices.length > 0) {
+            notifEl.style.display = "flex";
+            const detail = notifEl.querySelector(".status-detail");
+            detail.textContent = `(${notifServices.join(", ")})`;
+          }
+
+          // Database status
+          const dbEl = document.getElementById("status-database");
+          if (config.database?.enabled) {
+            dbEl.style.display = "flex";
+          }
+
+          // Stratum port (always show)
+          const stratumEl = document.getElementById("status-stratum");
+          if (config.stratum?.port) {
+            const detail = stratumEl.querySelector(".status-detail");
+            detail.textContent = config.stratum.port;
+            stratumEl.title = `Stratum server listening on port ${config.stratum.port}`;
+          }
+        } catch (error) {
+          console.error("Error fetching system config:", error);
+          const loadingEl = document.getElementById("status-loading");
+          if (loadingEl) {
+            loadingEl.textContent = "Error loading configuration";
+            loadingEl.style.color = "#ff6b6b";
+          }
+        }
+      }
+
       function updateAll() {
         updateMiners();
         updateStats();
         updateBlocks();
+        updateBestShares();
         updatePayouts();
+        updateDaemonStatus(); // Add daemon status updates
         document.getElementById("last-update").textContent =
           new Date().toLocaleTimeString();
       }
 
       // Initial load
       updateAll();
+      updateSystemConfig(); // Load system config once on startup
+      checkLcnHashFixStatus(); // Check if LCN hash fix is needed
 
       // Auto-refresh every 5 seconds
       setInterval(updateAll, 5000);
+
+      // Update blocks layout based on compact mode
+      function updateBlocksLayout() {
+        const container = document.getElementById("blocks-container");
+        if (!container) return;
+
+        if (workerCompactMode) {
+          // Compact mode: side by side
+          container.style.gridTemplateColumns =
+            "repeat(auto-fit, minmax(480px, 1fr))";
+        } else {
+          // Full mode: stack vertically
+          container.style.gridTemplateColumns = "1fr";
+        }
+      }
 
       // Worker name compact/full toggle logic
       (function initWorkerToggle() {
@@ -654,11 +1511,15 @@
               "workerCompactMode",
               workerCompactMode ? "compact" : "full"
             );
+            // Update blocks layout when toggling
+            updateBlocksLayout();
             // Re-render without forcing network if desired; simplest: call update
             updateMiners();
             updateBlocks();
           });
         }
+        // Apply initial layout
+        updateBlocksLayout();
       })();
 
       // Flush hashrate button
@@ -687,6 +1548,106 @@
         });
       })();
 
+      // Clear best shares button
+      (function initClearBestSharesButton() {
+        const btn = document.getElementById("clear-best-shares");
+        if (!btn) return;
+        btn.addEventListener("click", async () => {
+          if (
+            !confirm(
+              "Clear all best shares and start over? This cannot be undone."
+            )
+          ) {
+            return;
+          }
+          btn.disabled = true;
+          try {
+            const res = await fetch("/api/clear_best_shares", {
+              method: "POST",
+            });
+            const js = await res.json();
+            btn.textContent = "Cleared";
+            setTimeout(() => {
+              btn.textContent = "Clear";
+              btn.disabled = false;
+              updateBestShares();
+            }, 1500);
+          } catch (e) {
+            console.error("Clear failed", e);
+            btn.textContent = "Error";
+            setTimeout(() => {
+              btn.textContent = "Clear";
+              btn.disabled = false;
+            }, 1500);
+          }
+        });
+      })();
+
+      // Fix LCN hashes button with dry-run + limit controls
+      (function initFixHashesButton() {
+        const btn = document.getElementById("fix-lcn-hashes");
+        const dryCk = document.getElementById("fix-lcn-dryrun");
+        const limitInput = document.getElementById("fix-lcn-limit");
+        const statusEl = document.getElementById("fix-lcn-status");
+        if (!btn) return;
+        btn.addEventListener("click", async () => {
+          const dryRun = dryCk ? dryCk.checked : true;
+          const limitVal =
+            limitInput && limitInput.value.trim() !== ""
+              ? limitInput.value.trim()
+              : null;
+          if (
+            !confirm(
+              `Run LCN hash correction now?${dryRun ? " (dry‑run)" : ""}`
+            )
+          )
+            return;
+          btn.disabled = true;
+          const original = btn.textContent;
+          btn.textContent = "Running...";
+          if (statusEl) statusEl.textContent = "";
+          try {
+            let url = "/api/fix_lcn_aux_hashes";
+            const params = [];
+            if (dryRun) params.push("dry_run=1");
+            if (limitVal) params.push("limit=" + encodeURIComponent(limitVal));
+            if (params.length) url += "?" + params.join("&");
+            const res = await fetch(url, { method: "POST" });
+            const js = await res.json();
+            if (js.error) {
+              btn.textContent = "Error";
+              if (statusEl) statusEl.textContent = js.error;
+              console.error(js.error);
+            } else {
+              btn.textContent = js.dry_run
+                ? `Dry‑run ${js.updated}/${js.checked}`
+                : `Fixed ${js.updated}/${js.checked}`;
+              if (statusEl) {
+                const pending = js.checked - js.updated;
+                statusEl.textContent = `Checked ${js.checked} · Updated ${
+                  js.updated
+                }${js.dry_run ? " (dry‑run)" : ""}${
+                  pending && js.updated ? ` · Remaining ~${pending}` : ""
+                }`;
+              }
+              // If not dry-run and completed, recheck status to hide button
+              if (!js.dry_run && js.checked > 0) {
+                setTimeout(() => checkLcnHashFixStatus(), 1000);
+              }
+            }
+          } catch (e) {
+            btn.textContent = "Error";
+            if (statusEl) statusEl.textContent = "Request failed";
+            console.error(e);
+          }
+          setTimeout(() => {
+            btn.textContent = original;
+            btn.disabled = false;
+            if (statusEl) statusEl.textContent = "";
+          }, 6000);
+        });
+      })();
+
       // Remember hashrate mode toggle
       (function initHashrateMode() {
         const cb = document.getElementById("mode-toggle-hashrate");
@@ -700,6 +1661,50 @@
           );
           // force immediate refresh of miners aggregate view only
           updateMiners();
+        });
+      })();
+
+      // Theme toggle (light/dark)
+      (function initThemeToggle() {
+        const btn = document.getElementById("theme-toggle");
+        if (!btn) return;
+        const root = document.documentElement;
+        const stored = localStorage.getItem("dashboardTheme");
+        function setLabel() {
+          const isLight = root.getAttribute("data-theme") === "light";
+          const iconSpan = btn.querySelector(".icon");
+          if (isLight) {
+            btn
+              .querySelector(".label")
+              ?.replaceChildren(document.createTextNode("Dark Mode"));
+            if (iconSpan) iconSpan.textContent = "☀️";
+          } else {
+            btn
+              .querySelector(".label")
+              ?.replaceChildren(document.createTextNode("Light Mode"));
+            if (iconSpan) iconSpan.textContent = "🌙";
+          }
+        }
+        if (stored === "light") {
+          root.setAttribute("data-theme", "light");
+        } else {
+          root.removeAttribute("data-theme");
+        }
+        setLabel();
+        btn.addEventListener("click", () => {
+          const isLight = root.getAttribute("data-theme") === "light";
+          // Add fade class for cross-fade effect
+          document.body.classList.remove("theme-fade");
+          void document.body.offsetWidth; // force reflow
+          document.body.classList.add("theme-fade");
+          if (isLight) {
+            root.removeAttribute("data-theme");
+            localStorage.setItem("dashboardTheme", "dark");
+          } else {
+            root.setAttribute("data-theme", "light");
+            localStorage.setItem("dashboardTheme", "light");
+          }
+          setLabel();
         });
       })();
     </script>

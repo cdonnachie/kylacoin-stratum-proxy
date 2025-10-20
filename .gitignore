@@ -83,3 +83,4 @@ debug_*.txt
 tmp/
 temp/
 *.tmp
+data/vardiff_state.json

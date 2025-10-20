@@ -36,6 +36,25 @@ class Settings:
     enable_dashboard: bool = False
     dashboard_port: int = 8080
     enable_database: bool = False
+    # Variable difficulty (per-miner) settings
+    enable_vardiff: bool = False
+    vardiff_target_interval: float = 15.0
+    # Adjusted defaults for KCN/LCN low absolute difficulty regime
+    vardiff_min_difficulty: float = 0.00001
+    vardiff_max_difficulty: float = 0.1
+    vardiff_retarget_shares: int = 20
+    vardiff_retarget_time: float = 300.0
+    vardiff_up_step: float = 2.0
+    vardiff_down_step: float = 0.5
+    vardiff_ema_alpha: float = 0.3
+    vardiff_inactivity_lower: float = 90.0
+    vardiff_inactivity_multiples: float = 6.0
+    vardiff_inactivity_drop_factor: float = 0.5
+    vardiff_state_path: str = "data/vardiff_state.json"
+    vardiff_warm_start_minutes: int = 60
+    vardiff_chain_headroom: float = (
+        0.9  # fraction of chain difficulty used as upper cap
+    )
 
     def __post_init__(self):
         """Load settings from environment variables at instance creation time"""
@@ -59,8 +78,8 @@ class Settings:
         self.debug_shares = os.getenv("DEBUG_SHARES", "false").lower() == "true"
         # ZMQ Configuration - read at instance creation time
         self.enable_zmq = os.getenv("ENABLE_ZMQ", "true").lower() == "true"
-        self.kcn_zmq_endpoint = os.getenv("KCN_ZMQ_ENDPOINT", "tcp://kylacoin:28332")
-        self.lcn_zmq_endpoint = os.getenv("LCN_ZMQ_ENDPOINT", "tcp://lyncoin:28433")
+        self.kcn_zmq_endpoint = os.getenv("KCN_ZMQ_ENDPOINT", "tcp://kylacoin:29332")
+        self.lcn_zmq_endpoint = os.getenv("LCN_ZMQ_ENDPOINT", "tcp://lyncoin:29433")
         # Share difficulty divisor: share_diff = network_diff / divisor
         # Higher value = easier shares = more frequent submissions
         # 1.0 = only blocks, 1000.0 = balanced, 10000.0 = very frequent
@@ -75,6 +94,47 @@ class Settings:
         self.enable_dashboard = os.getenv("ENABLE_DASHBOARD", "false").lower() == "true"
         self.dashboard_port = int(os.getenv("DASHBOARD_PORT", "8080"))
         self.enable_database = os.getenv("ENABLE_DATABASE", "false").lower() == "true"
+        # VarDiff settings
+        self.enable_vardiff = os.getenv("ENABLE_VARDIFF", "false").lower() == "true"
+        try:
+            self.vardiff_target_interval = float(
+                os.getenv("VARDIFF_TARGET_SHARE_TIME", "15.0")
+            )
+        except ValueError:
+            self.vardiff_target_interval = 15.0
+        # Extended vardiff tunables
+        self.vardiff_min_difficulty = float(
+            os.getenv("VARDIFF_MIN_DIFFICULTY", "0.00001")
+        )
+        self.vardiff_max_difficulty = float(os.getenv("VARDIFF_MAX_DIFFICULTY", "0.1"))
+        self.vardiff_retarget_shares = int(os.getenv("VARDIFF_RETARGET_SHARES", "20"))
+        self.vardiff_retarget_time = float(os.getenv("VARDIFF_RETARGET_TIME", "300.0"))
+        self.vardiff_up_step = float(os.getenv("VARDIFF_UP_STEP", "2.0"))
+        self.vardiff_down_step = float(os.getenv("VARDIFF_DOWN_STEP", "0.5"))
+        self.vardiff_ema_alpha = float(os.getenv("VARDIFF_EMA_ALPHA", "0.3"))
+        self.vardiff_inactivity_lower = float(
+            os.getenv("VARDIFF_INACTIVITY_LOWER", "90.0")
+        )
+        self.vardiff_inactivity_multiples = float(
+            os.getenv("VARDIFF_INACTIVITY_MULTIPLES", "6.0")
+        )
+        self.vardiff_inactivity_drop_factor = float(
+            os.getenv("VARDIFF_INACTIVITY_DROP_FACTOR", "0.5")
+        )
+        self.vardiff_state_path = os.getenv(
+            "VARDIFF_STATE_PATH", "data/vardiff_state.json"
+        )
+        self.vardiff_warm_start_minutes = int(
+            os.getenv("VARDIFF_WARM_START_MINUTES", "60")
+        )
+        try:
+            self.vardiff_chain_headroom = float(
+                os.getenv("VARDIFF_CHAIN_HEADROOM", "0.9")
+            )
+            if self.vardiff_chain_headroom <= 0 or self.vardiff_chain_headroom > 1:
+                self.vardiff_chain_headroom = 0.9
+        except ValueError:
+            self.vardiff_chain_headroom = 0.9
 
     @property
     def node_url(self) -> str:
