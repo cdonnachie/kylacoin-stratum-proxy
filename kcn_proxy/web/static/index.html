@@ -450,6 +450,7 @@
               font-size: 0.6em;
               padding: 4px 10px;
               background: #057c32;
+              color: #fff;
               vertical-align: middle;
             "
             title="Variable difficulty is enabled - difficulty adjusts per miner to target 15s share intervals"
@@ -630,6 +631,11 @@
               <li>
                 <strong>Ratio ≥ 1.0</strong> (e.g., "1.0x", "2.97x"): Share
                 meets or exceeds network difficulty—submitted as a block!
+              </li>
+              <li>
+                <strong>"1 in X" format</strong> (e.g., "1 in 300", "1 in 107"):
+                Very small ratio shares shown as inverse odds. This helps
+                understand rarity of very low difficulty shares.
               </li>
             </ul>
             In merged mining, both chains receive your hash submissions

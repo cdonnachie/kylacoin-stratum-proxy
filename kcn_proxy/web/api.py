@@ -270,10 +270,16 @@ async def get_stats(hours: int = 24):
 
     # Add current difficulty and target info
     if state:
-        # KCN difficulty: use state.advertised_diff first, fallback to daemon query
-        kcn_difficulty = state.advertised_diff or 0
+        kcn_difficulty = 0
+        if state.kcn_original_target:
+            try:
+                from ..consensus.targets import target_to_diff1
 
-        # If state difficulty is 0, try to get it from daemon directly
+                kcn_target_int = int(state.kcn_original_target, 16)
+                kcn_difficulty = target_to_diff1(kcn_target_int)
+            except Exception as e:
+                logger.debug(f"Failed to compute KCN difficulty from target: {e}")
+
         if kcn_difficulty == 0:
             try:
                 import aiohttp
@@ -288,7 +294,6 @@ async def get_stats(hours: int = 24):
                         "method": "getblockchaininfo",
                         "params": [],
                     }
-                    # Use the correct RPC URL format from daemon status endpoint
                     kcn_url = f"http://{settings.rpcuser}:{settings.rpcpass}@{settings.rpcip}:{settings.rpcport}"
                     async with session.post(
                         kcn_url,
@@ -304,7 +309,6 @@ async def get_stats(hours: int = 24):
 
         stats["current_kcn_difficulty"] = kcn_difficulty
 
-        # LCN difficulty: compute diff1 from target hex if aux job present
         if state.aux_job and getattr(state.aux_job, "target", None):
             try:
                 from ..consensus.targets import target_to_diff1
