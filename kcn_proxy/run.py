@@ -1,4 +1,5 @@
 import asyncio
+import time
 from .config import Settings
 from .logging_setup import setup_logging
 from .state.template import TemplateState
@@ -49,6 +50,82 @@ def run_with_settings(settings: Settings):
                         logger.error("Periodic database cleanup failed: %s", e)
 
             asyncio.create_task(periodic_cleanup())
+
+            # Start periodic snapshot task (runs every 60 seconds)
+            async def periodic_snapshots():
+                last_snapshot_time = time.time()
+                while True:
+                    try:
+                        current_time = time.time()
+
+                        # Record difficulty and hashrate snapshot every 60 seconds
+                        if current_time - last_snapshot_time >= 60:
+                            from .db.schema import (
+                                record_difficulty_snapshot,
+                                record_hashrate_snapshot,
+                            )
+                            from .consensus.targets import target_to_diff1
+
+                            # Record difficulty snapshots for both chains
+                            if state.kcn_original_target:
+                                try:
+                                    kcn_target_int = int(state.kcn_original_target, 16)
+                                    kcn_diff = target_to_diff1(kcn_target_int)
+                                    await record_difficulty_snapshot("KCN", kcn_diff)
+                                except Exception as e:
+                                    logger.debug(
+                                        f"Failed to record KCN difficulty snapshot: {e}"
+                                    )
+
+                            if state.aux_job and state.aux_job.target:
+                                try:
+                                    lcn_target_int = int(state.aux_job.target, 16)
+                                    lcn_diff = target_to_diff1(lcn_target_int)
+                                    await record_difficulty_snapshot("LCN", lcn_diff)
+                                except Exception as e:
+                                    logger.debug(
+                                        f"Failed to record LCN difficulty snapshot: {e}"
+                                    )
+
+                            # Record hashrate snapshot
+                            try:
+                                from .stratum.session import hashrate_tracker
+
+                                if hashrate_tracker:
+                                    # Calculate aggregate hashrate from all connected sessions
+                                    total_hashrate_hs = 0.0
+                                    if hasattr(state, "all_sessions"):
+                                        for session in state.all_sessions:
+                                            worker_name = getattr(
+                                                session, "_worker_name", None
+                                            )
+                                            if worker_name:
+                                                hashrate_info = hashrate_tracker.get_hashrate_display(
+                                                    worker_name
+                                                )
+                                                instant_hs = float(
+                                                    hashrate_info.get("instant", 0.0)
+                                                )
+                                                total_hashrate_hs += instant_hs
+
+                                    # Always record hashrate snapshot (even if 0)
+                                    logger.debug(
+                                        f"Recording hashrate snapshot: {total_hashrate_hs} H/s"
+                                    )
+                                    await record_hashrate_snapshot(total_hashrate_hs)
+                                else:
+                                    logger.debug("hashrate_tracker not initialized")
+                            except Exception as e:
+                                logger.debug(f"Failed to record hashrate snapshot: {e}")
+
+                            last_snapshot_time = current_time
+
+                        await asyncio.sleep(10)  # Check every 10 seconds
+                    except Exception as e:
+                        logger.error(f"Periodic snapshot collection failed: {e}")
+                        await asyncio.sleep(10)
+
+            asyncio.create_task(periodic_snapshots())
 
         # Start web dashboard if enabled
         dashboard_task = None

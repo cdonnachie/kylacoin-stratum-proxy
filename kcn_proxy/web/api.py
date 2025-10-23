@@ -217,12 +217,17 @@ async def get_active_miners():
 
 
 @app.get("/api/blocks")
-async def get_blocks(limit: int = 50):
-    """Get recent blocks found"""
+async def get_blocks(limit: int = 100, offset: int = 0):
+    """Get recent blocks found with pagination support"""
     from ..db.schema import get_recent_blocks
 
-    blocks = await get_recent_blocks(limit)
-    return JSONResponse({"blocks": blocks})
+    result = await get_recent_blocks(limit, offset)
+    return JSONResponse(
+        {
+            "blocks": result["blocks"],
+            "total": result["total"],
+        }
+    )
 
 
 @app.get("/api/blocks/{chain}")
@@ -259,6 +264,32 @@ async def get_best_shares_by_chain(chain: str, limit: int = 10):
     except Exception as e:
         logger.error(f"Error getting best shares for {chain}: {e}")
         return JSONResponse({"shares": [], "chain": chain.upper()})
+
+
+@app.get("/api/difficulty-history/{chain}")
+async def get_difficulty_history(chain: str, hours: int = 24):
+    """Get difficulty history for a specific chain over the last N hours"""
+    try:
+        from ..db.schema import get_difficulty_history
+
+        history = await get_difficulty_history(chain.upper(), hours)
+        return JSONResponse({"chain": chain.upper(), "hours": hours, "data": history})
+    except Exception as e:
+        logger.error(f"Error getting difficulty history for {chain}: {e}")
+        return JSONResponse({"chain": chain.upper(), "hours": hours, "data": []})
+
+
+@app.get("/api/hashrate-history")
+async def get_hashrate_history(hours: int = 24):
+    """Get hashrate history for the last N hours"""
+    try:
+        from ..db.schema import get_hashrate_history
+
+        history = await get_hashrate_history(hours)
+        return JSONResponse({"hours": hours, "data": history})
+    except Exception as e:
+        logger.error(f"Error getting hashrate history: {e}")
+        return JSONResponse({"hours": hours, "data": []})
 
 
 @app.get("/api/stats")
@@ -874,3 +905,80 @@ async def get_daemon_status():
     }
 
     return JSONResponse(response)
+
+
+@app.get("/api/miners/connected")
+async def get_connected_miners_paginated(page: int = 1, limit: int = 20):
+    """Get connected miners with pagination"""
+    try:
+        from ..db.schema import get_connected_miners
+
+        if page < 1:
+            page = 1
+        offset = (page - 1) * limit
+
+        result = await get_connected_miners(offset=offset, limit=limit)
+        return JSONResponse(
+            {
+                "miners": result["miners"],
+                "total": result["total"],
+                "page": page,
+                "limit": limit,
+                "pages": (result["total"] + limit - 1) // limit,
+            }
+        )
+    except Exception as e:
+        logger.error(f"Error getting connected miners: {e}")
+        return JSONResponse(
+            {"miners": [], "total": 0, "page": page, "limit": limit, "pages": 0}
+        )
+
+
+@app.get("/api/miners/disconnected")
+async def get_disconnected_miners_paginated(
+    hours: int = 24, page: int = 1, limit: int = 20
+):
+    """Get recently disconnected miners with pagination"""
+    try:
+        from ..db.schema import get_disconnected_miners
+
+        if page < 1:
+            page = 1
+        offset = (page - 1) * limit
+
+        result = await get_disconnected_miners(hours=hours, offset=offset, limit=limit)
+        return JSONResponse(
+            {
+                "miners": result["miners"],
+                "total": result["total"],
+                "page": page,
+                "limit": limit,
+                "pages": (result["total"] + limit - 1) // limit,
+                "hours": hours,
+            }
+        )
+    except Exception as e:
+        logger.error(f"Error getting disconnected miners: {e}")
+        return JSONResponse(
+            {
+                "miners": [],
+                "total": 0,
+                "page": page,
+                "limit": limit,
+                "pages": 0,
+                "hours": hours,
+            }
+        )
+
+
+@app.post("/api/miners/{worker_name}/clear")
+async def clear_miner_record(worker_name: str):
+    """Delete a miner session record"""
+    try:
+        from ..db.schema import delete_miner_session
+
+        await delete_miner_session(worker_name)
+        return JSONResponse({"status": "success", "worker_name": worker_name})
+    except Exception as e:
+        logger.error(f"Error deleting miner record {worker_name}: {e}")
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)

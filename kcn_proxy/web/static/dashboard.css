@@ -320,13 +320,23 @@ tr:hover {
 .kcn-network-card,
 .kcn-blocks-card {
   border-left: 4px solid var(--badge-kcn);
-  background: linear-gradient(135deg, var(--card) 0%, rgba(217, 70, 239, 0.02) 50%, rgba(217, 70, 239, 0.05) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--card) 0%,
+    rgba(217, 70, 239, 0.02) 50%,
+    rgba(217, 70, 239, 0.05) 100%
+  );
 }
 
 .lcn-network-card,
 .lcn-blocks-card {
   border-left: 4px solid var(--badge-lcn);
-  background: linear-gradient(135deg, var(--card) 0%, rgba(249, 115, 22, 0.02) 50%, rgba(249, 115, 22, 0.05) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--card) 0%,
+    rgba(249, 115, 22, 0.02) 50%,
+    rgba(249, 115, 22, 0.05) 100%
+  );
 }
 
 .kcn-network-card h3,
@@ -516,6 +526,47 @@ tbody tr td a.hash-link {
   background: rgba(0, 0, 0, 0.12);
 }
 [data-theme="light"] .toolbar-btn:hover {
+  background: rgba(0, 0, 0, 0.18);
+}
+
+/* Pagination controls for blocks table */
+.pagination-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid var(--card-border);
+  margin-top: 12px;
+}
+
+.pagination-btn {
+  background: var(--btn-bg);
+  border: 1px solid var(--btn-border);
+  color: var(--text);
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.75em;
+  letter-spacing: 0.5px;
+  transition: background var(--fast), border-color var(--fast);
+  backdrop-filter: blur(6px);
+}
+
+.pagination-btn:hover {
+  background: var(--btn-bg-hover);
+}
+
+.pagination-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+[data-theme="light"] .pagination-btn {
+  background: rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="light"] .pagination-btn:hover:not(:disabled) {
   background: rgba(0, 0, 0, 0.18);
 }
 
@@ -785,5 +836,49 @@ body[data-compact-workers="true"] .dual-blocks {
 }
 
 .pagination-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+/* Notification animations */
+@keyframes slideIn {
+  from {
+    transform: translateX(400px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOut {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(400px);
+    opacity: 0;
+  }
+}
+
+/* Action button styles */
+.action-btn {
+  padding: 4px 12px;
+  background: var(--btn-bg);
+  border: 1px solid var(--btn-border);
+  color: var(--text);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85em;
+  transition: all var(--fast);
+}
+
+.action-btn:hover {
+  background: var(--btn-bg-hover);
+  border-color: var(--btn-border);
+}
+
+.action-btn:active {
   transform: translateY(1px);
 }

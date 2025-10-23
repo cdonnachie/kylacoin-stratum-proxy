@@ -121,6 +121,71 @@ async def init_database():
         """
         )
 
+        # Difficulty history (for network trend analysis)
+        await db.execute(
+            """
+            CREATE TABLE IF NOT EXISTS difficulty_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                chain TEXT NOT NULL,
+                difficulty REAL NOT NULL,
+                timestamp INTEGER NOT NULL
+            )
+        """
+        )
+
+        await db.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_difficulty_history_chain_timestamp
+            ON difficulty_history(chain, timestamp DESC)
+        """
+        )
+
+        # Hashrate history (for performance tracking)
+        await db.execute(
+            """
+            CREATE TABLE IF NOT EXISTS hashrate_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                hashrate_hs REAL NOT NULL,
+                timestamp INTEGER NOT NULL
+            )
+        """
+        )
+
+        await db.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_hashrate_history_timestamp
+            ON hashrate_history(timestamp DESC)
+        """
+        )
+
+        # Miner sessions tracking (for last-seen monitoring)
+        await db.execute(
+            """
+            CREATE TABLE IF NOT EXISTS miner_sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                worker_name TEXT NOT NULL UNIQUE,
+                miner_software TEXT,
+                first_seen INTEGER NOT NULL,
+                last_seen INTEGER NOT NULL,
+                is_connected BOOLEAN DEFAULT 1
+            )
+        """
+        )
+
+        await db.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_miner_sessions_last_seen
+            ON miner_sessions(last_seen DESC)
+        """
+        )
+
+        await db.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_miner_sessions_connected
+            ON miner_sessions(is_connected)
+        """
+        )
+
         await db.commit()
         logger.info(f"Database initialized at {DB_PATH}")
 
@@ -320,20 +385,30 @@ async def update_share_stats(
         await db.commit()
 
 
-async def get_recent_blocks(limit: int = 50):
-    """Get recent blocks found"""
+async def get_recent_blocks(limit: int = 50, offset: int = 0):
+    """Get recent blocks found with pagination support"""
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
+
+        # Get total count
+        count_cursor = await db.execute("SELECT COUNT(*) as total FROM blocks")
+        count_row = await count_cursor.fetchone()
+        total_count = count_row["total"] if count_row else 0
+
+        # Get paginated results
         cursor = await db.execute(
             """
             SELECT * FROM blocks
             ORDER BY timestamp DESC
-            LIMIT ?
+            LIMIT ? OFFSET ?
         """,
-            (limit,),
+            (limit, offset),
         )
         rows = await cursor.fetchall()
-        return [dict(row) for row in rows]
+        return {
+            "blocks": [dict(row) for row in rows],
+            "total": total_count,
+        }
 
 
 async def get_blocks_by_chain(chain: str, limit: int = 10):
@@ -603,3 +678,205 @@ async def get_unified_best_shares(limit: int = 10):
 
         rows = await cursor.fetchall()
         return [dict(row) for row in rows]
+
+
+async def record_difficulty_snapshot(chain: str, difficulty: float):
+    """Record a difficulty snapshot for history tracking"""
+    import time
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            """
+            INSERT INTO difficulty_history (chain, difficulty, timestamp)
+            VALUES (?, ?, ?)
+            """,
+            (chain, difficulty, int(time.time())),
+        )
+        await db.commit()
+
+
+async def get_difficulty_history(chain: str, hours: int = 24):
+    """Get difficulty history for a specific chain within the last N hours"""
+    import time
+
+    cutoff = int(time.time()) - (hours * 3600)
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cursor = await db.execute(
+            """
+            SELECT timestamp, difficulty
+            FROM difficulty_history
+            WHERE chain = ? AND timestamp > ?
+            ORDER BY timestamp ASC
+            """,
+            (chain, cutoff),
+        )
+        rows = await cursor.fetchall()
+        return [
+            {"timestamp": row["timestamp"], "difficulty": row["difficulty"]}
+            for row in rows
+        ]
+
+
+async def record_hashrate_snapshot(hashrate_hs: float):
+    """Record a hashrate snapshot for history tracking"""
+    import time
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            """
+            INSERT INTO hashrate_history (hashrate_hs, timestamp)
+            VALUES (?, ?)
+            """,
+            (hashrate_hs, int(time.time())),
+        )
+        await db.commit()
+
+
+async def get_hashrate_history(hours: int = 24):
+    """Get hashrate history for the last N hours"""
+    import time
+
+    cutoff = int(time.time()) - (hours * 3600)
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cursor = await db.execute(
+            """
+            SELECT timestamp, hashrate_hs
+            FROM hashrate_history
+            WHERE timestamp > ?
+            ORDER BY timestamp ASC
+            """,
+            (cutoff,),
+        )
+        rows = await cursor.fetchall()
+        return [
+            {"timestamp": row["timestamp"], "hashrate_hs": row["hashrate_hs"]}
+            for row in rows
+        ]
+
+
+async def record_miner_session(worker_name: str, miner_software: str = None):
+    """Record or update a miner session"""
+    import time
+
+    current_time = int(time.time())
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        # Try to update existing record
+        cursor = await db.execute(
+            """
+            UPDATE miner_sessions
+            SET last_seen = ?, is_connected = 1, miner_software = COALESCE(?, miner_software)
+            WHERE worker_name = ?
+            """,
+            (current_time, miner_software, worker_name),
+        )
+
+        # If no rows were updated, insert new record
+        if cursor.rowcount == 0:
+            await db.execute(
+                """
+                INSERT INTO miner_sessions (worker_name, miner_software, first_seen, last_seen, is_connected)
+                VALUES (?, ?, ?, ?, 1)
+                """,
+                (worker_name, miner_software, current_time, current_time),
+            )
+
+        await db.commit()
+
+
+async def get_connected_miners(offset: int = 0, limit: int = 20):
+    """Get connected miners with pagination"""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+
+        # Get total count
+        cursor = await db.execute(
+            "SELECT COUNT(*) as count FROM miner_sessions WHERE is_connected = 1"
+        )
+        row = await cursor.fetchone()
+        total = row["count"]
+
+        # Get paginated results
+        cursor = await db.execute(
+            """
+            SELECT worker_name, miner_software, first_seen, last_seen, is_connected
+            FROM miner_sessions
+            WHERE is_connected = 1
+            ORDER BY last_seen DESC
+            LIMIT ? OFFSET ?
+            """,
+            (limit, offset),
+        )
+        rows = await cursor.fetchall()
+        return {
+            "miners": [dict(row) for row in rows],
+            "total": total,
+            "offset": offset,
+            "limit": limit,
+        }
+
+
+async def get_disconnected_miners(hours: int = 24, offset: int = 0, limit: int = 20):
+    """Get recently disconnected miners with pagination"""
+    import time
+
+    cutoff = int(time.time()) - (hours * 3600)
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+
+        # Get total count
+        cursor = await db.execute(
+            "SELECT COUNT(*) as count FROM miner_sessions WHERE is_connected = 0 AND last_seen > ?",
+            (cutoff,),
+        )
+        row = await cursor.fetchone()
+        total = row["count"]
+
+        # Get paginated results
+        cursor = await db.execute(
+            """
+            SELECT worker_name, miner_software, first_seen, last_seen, is_connected
+            FROM miner_sessions
+            WHERE is_connected = 0 AND last_seen > ?
+            ORDER BY last_seen DESC
+            LIMIT ? OFFSET ?
+            """,
+            (cutoff, limit, offset),
+        )
+        rows = await cursor.fetchall()
+        return {
+            "miners": [dict(row) for row in rows],
+            "total": total,
+            "offset": offset,
+            "limit": limit,
+        }
+
+
+async def delete_miner_session(worker_name: str):
+    """Delete a miner session record"""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "DELETE FROM miner_sessions WHERE worker_name = ?", (worker_name,)
+        )
+        await db.commit()
+
+
+async def mark_miner_disconnected(worker_name: str):
+    """Mark a miner as disconnected"""
+    import time
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            """
+            UPDATE miner_sessions
+            SET is_connected = 0, last_seen = ?
+            WHERE worker_name = ?
+            """,
+            (int(time.time()), worker_name),
+        )
+        await db.commit()

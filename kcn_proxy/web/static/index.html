@@ -6,6 +6,7 @@
     <title>KCN-LCN Solo Mining Dashboard</title>
     <link rel="stylesheet" href="/static/dashboard.css" />
     <link rel="icon" type="image/png" href="/static/kylacoin-logo.png" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
   </head>
   <body>
     <div class="container">
@@ -476,10 +477,109 @@
             </tbody>
           </table>
         </div>
+        <div
+          id="miners-pagination"
+          class="pagination-controls"
+          style="margin-top: 12px"
+        >
+          <button
+            id="miners-prev-btn"
+            class="pagination-btn"
+            onclick="minersPaginationState.page = Math.max(1, minersPaginationState.page - 1); saveMinersPaginationState(); updateMiners()"
+          >
+            ← Previous
+          </button>
+          <span id="miners-page-info" style="margin: 0 12px">Page 1 of 1</span>
+          <button
+            id="miners-next-btn"
+            class="pagination-btn"
+            onclick="minersPaginationState.page += 1; saveMinersPaginationState(); updateMiners()"
+          >
+            Next →
+          </button>
+        </div>
       </div>
 
       <div class="section">
-        <h2>🎉 Recent Blocks</h2>
+        <h2>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="lucide lucide-pickaxe-icon lucide-pickaxe"
+          >
+            <path d="m14 13-8.381 8.38a1 1 0 0 1-3.001-3L11 9.999" />
+            <path
+              d="M15.973 4.027A13 13 0 0 0 5.902 2.373c-1.398.342-1.092 2.158.277 2.601a19.9 19.9 0 0 1 5.822 3.024"
+            />
+            <path
+              d="M16.001 11.999a19.9 19.9 0 0 1 3.024 5.824c.444 1.369 2.26 1.676 2.603.278A13 13 0 0 0 20 8.069"
+            />
+            <path
+              d="M18.352 3.352a1.205 1.205 0 0 0-1.704 0l-5.296 5.296a1.205 1.205 0 0 0 0 1.704l2.296 2.296a1.205 1.205 0 0 0 1.704 0l5.296-5.296a1.205 1.205 0 0 0 0-1.704z"
+            />
+          </svg>
+          Recently Seen Miners
+        </h2>
+        <div style="margin-bottom: 12px">
+          <label for="disconnected-miners-hours">Time Range:</label>
+          <select
+            id="disconnected-miners-hours"
+            onchange="updateDisconnectedMiners()"
+            style="margin-left: 8px; padding: 4px 8px"
+          >
+            <option value="24">Last 24 hours</option>
+            <option value="168">Last 7 days</option>
+            <option value="720">Last 30 days</option>
+          </select>
+        </div>
+        <div class="table-wrapper">
+          <table aria-label="Recently Disconnected Miners">
+            <thead>
+              <tr>
+                <th>Worker</th>
+                <th>Software</th>
+                <th>Time Ago</th>
+                <th>Last Seen</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="disconnected-miners-body">
+              <tr>
+                <td colspan="5" class="no-data">Loading...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="lucide lucide-blocks-icon lucide-blocks"
+          >
+            <path
+              d="M10 22V7a1 1 0 0 0-1-1H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5a1 1 0 0 0-1-1H2"
+            />
+            <rect x="14" y="2" width="8" height="8" rx="1" />
+          </svg>
+          Recent Blocks
+        </h2>
         <div
           id="blocks-container"
           class="dual-blocks"
@@ -527,6 +627,34 @@
                 </tbody>
               </table>
             </div>
+            <div
+              id="kcn-pagination"
+              class="pagination-controls"
+              style="
+                display: none;
+                margin-top: 12px;
+                text-align: center;
+                font-size: 0.85em;
+              "
+            >
+              <button
+                class="pagination-btn"
+                onclick="prevBlocksPage('kcn')"
+                title="Previous page"
+              >
+                ← Prev
+              </button>
+              <span id="kcn-page-info" style="margin: 0 12px; opacity: 0.7"
+                >Page 1</span
+              >
+              <button
+                class="pagination-btn"
+                onclick="nextBlocksPage('kcn')"
+                title="Next page"
+              >
+                Next →
+              </button>
+            </div>
           </div>
           <div class="subsection lcn-blocks-card">
             <h3
@@ -566,6 +694,166 @@
                 </tbody>
               </table>
             </div>
+            <div
+              id="lcn-pagination"
+              class="pagination-controls"
+              style="
+                display: none;
+                margin-top: 12px;
+                text-align: center;
+                font-size: 0.85em;
+              "
+            >
+              <button
+                class="pagination-btn"
+                onclick="prevBlocksPage('lcn')"
+                title="Previous page"
+              >
+                ← Prev
+              </button>
+              <span id="lcn-page-info" style="margin: 0 12px; opacity: 0.7"
+                >Page 1</span
+              >
+              <button
+                class="pagination-btn"
+                onclick="nextBlocksPage('lcn')"
+                title="Next page"
+              >
+                Next →
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="lucide lucide-chart-line-icon lucide-chart-line"
+          >
+            <path d="M3 3v16a2 2 0 0 0 2 2h16" />
+            <path d="m19 9-5 5-4-4-3 3" />
+          </svg>
+          Network Difficulty Trend
+        </h2>
+        <div style="position: relative; height: 300px; margin-bottom: 20px">
+          <canvas id="difficulty-chart"></canvas>
+        </div>
+        <div
+          style="
+            display: grid;
+            gap: 12px;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+          "
+        >
+          <button
+            class="toolbar-btn"
+            onclick="updateDifficultyChart(24)"
+            title="Last 24 hours"
+          >
+            24h
+          </button>
+          <button
+            class="toolbar-btn"
+            onclick="updateDifficultyChart(168)"
+            title="Last 7 days"
+          >
+            7d
+          </button>
+          <button
+            class="toolbar-btn"
+            onclick="updateDifficultyChart(720)"
+            title="Last 30 days"
+          >
+            30d
+          </button>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            style="
+              display: inline-block;
+              vertical-align: middle;
+              margin-right: 8px;
+            "
+          >
+            <polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+          </svg>
+          Hashrate History Graph
+        </h2>
+        <div style="position: relative; height: 300px; margin-bottom: 20px">
+          <canvas id="hashrate-chart"></canvas>
+        </div>
+        <div
+          style="
+            display: grid;
+            gap: 12px;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+          "
+        >
+          <button
+            class="toolbar-btn"
+            onclick="updateHashrateChart(24)"
+            title="Last 24 hours"
+          >
+            24h
+          </button>
+          <button
+            class="toolbar-btn"
+            onclick="updateHashrateChart(168)"
+            title="Last 7 days"
+          >
+            7d
+          </button>
+        </div>
+        <div
+          style="
+            margin-top: 12px;
+            padding: 12px 16px;
+            background: var(--card-highlight);
+            border-radius: 6px;
+            font-size: 0.8em;
+            line-height: 1.5;
+            color: var(--text-dim);
+            border-left: 3px solid var(--badge-kcn);
+          "
+        >
+          <strong style="color: var(--text)">💡 What to look for:</strong>
+          <div style="margin-top: 8px">
+            <ul style="margin: 0; padding: 0 0 0 20px">
+              <li>
+                <strong>Peaks</strong>: Good mining conditions, all miners
+                connected
+              </li>
+              <li>
+                <strong>Valleys</strong>: Connection issues, network congestion,
+                or miner disconnects
+              </li>
+              <li>
+                <strong>Trends</strong>: Rising hashrate = more miners joining;
+                Falling hashrate = power/network issues
+              </li>
+            </ul>
           </div>
         </div>
       </div>
@@ -578,7 +866,32 @@
             align-items: center;
           "
         >
-          <h2>🏆 Best Shares</h2>
+          <h2>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="lucide lucide-trophy-icon lucide-trophy"
+            >
+              <path
+                d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978"
+              />
+              <path
+                d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978"
+              />
+              <path d="M18 9h1.5a1 1 0 0 0 0-5H18" />
+              <path d="M4 22h16" />
+              <path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z" />
+              <path d="M6 9H4.5a1 1 0 0 1 0-5H6" />
+            </svg>
+            Best Shares
+          </h2>
           <button
             id="clear-best-shares"
             class="toolbar-btn"
@@ -647,7 +960,30 @@
       </div>
 
       <div class="section">
-        <h2>💰 Payout Addresses</h2>
+        <h2>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            style="
+              display: inline-block;
+              vertical-align: middle;
+              margin-right: 8px;
+            "
+          >
+            <circle cx="8" cy="8" r="6" />
+            <path d="M18.09 10.37A6 6 0 1 1 10.34 18" />
+            <path d="M7 6h1v4" />
+            <path d="m16.71 13.88.7.71-2.82 2.82" />
+          </svg>
+          Payout Addresses
+        </h2>
         <div class="table-wrapper">
           <table aria-label="Payout Addresses">
             <thead>
@@ -713,8 +1049,8 @@
           <span style="color: #05a532; margin-right: 4px">●</span>
           <span title="Database logging enabled">Database</span>
         </div>
-        <div id="status-stratum" class="status-item" style="opacity: 0.7">
-          <span style="opacity: 0.5; margin-right: 4px">•</span>
+        <div id="status-stratum" class="status-item" style="display: none">
+          <span style="color: #05a532; margin-right: 4px">●</span>
           <span title="Stratum server port">Port:</span>
           <span class="status-detail" style="margin-left: 4px; font-weight: 500"
             >—</span
@@ -943,6 +1279,32 @@
         return full;
       }
 
+      function formatDate(date) {
+        return date.toLocaleDateString() + " " + date.toLocaleTimeString();
+      }
+
+      function getTimeAgo(date) {
+        const now = new Date();
+        const diff = Math.floor((now - date) / 1000); // seconds
+
+        const MINUTE = 60;
+        const HOUR = 60 * MINUTE;
+        const DAY = 24 * HOUR;
+
+        if (diff < MINUTE) {
+          return "just now";
+        } else if (diff < HOUR) {
+          const mins = Math.floor(diff / MINUTE);
+          return `${mins}m ago`;
+        } else if (diff < DAY) {
+          const hours = Math.floor(diff / HOUR);
+          return `${hours}h ago`;
+        } else {
+          const days = Math.floor(diff / DAY);
+          return `${days}d ago`;
+        }
+      }
+
       function formatTTF(seconds) {
         if (!seconds || seconds <= 0) return "—";
 
@@ -972,10 +1334,63 @@
         }
       }
 
+      // Pagination state for miners
+      const minersPaginationState = {
+        page: 1,
+        limit: 20,
+        total: 0,
+        miners: [],
+      };
+
+      // Load/save miner pagination state
+      function loadMinersPaginationState() {
+        try {
+          const saved = localStorage.getItem("minersPaginationPage");
+          if (saved) {
+            minersPaginationState.page = parseInt(saved) || 1;
+          }
+        } catch (e) {
+          console.debug("Could not load miners pagination state:", e);
+        }
+      }
+
+      function saveMinersPaginationState() {
+        try {
+          localStorage.setItem(
+            "minersPaginationPage",
+            minersPaginationState.page
+          );
+        } catch (e) {
+          console.debug("Could not save miners pagination state:", e);
+        }
+      }
+
       async function updateMiners() {
         try {
+          loadMinersPaginationState();
           const response = await fetch("/api/miners");
           const data = await response.json();
+
+          // Store all miners for client-side pagination
+          minersPaginationState.miners = data.miners || [];
+          minersPaginationState.total = minersPaginationState.miners.length;
+
+          // Calculate pagination
+          const totalPages =
+            Math.ceil(
+              minersPaginationState.miners.length / minersPaginationState.limit
+            ) || 1;
+          if (minersPaginationState.page > totalPages) {
+            minersPaginationState.page = Math.max(1, totalPages);
+            saveMinersPaginationState();
+          }
+
+          const offset =
+            (minersPaginationState.page - 1) * minersPaginationState.limit;
+          const pageMiners = minersPaginationState.miners.slice(
+            offset,
+            offset + minersPaginationState.limit
+          );
 
           // Update VarDiff badge visibility
           const vardiffBadge = document.getElementById("vardiff-badge");
@@ -1023,11 +1438,11 @@
           document.getElementById("miner-count").textContent = data.miner_count;
 
           const tbody = document.getElementById("miners-body");
-          if (data.miners.length === 0) {
+          if (pageMiners.length === 0) {
             tbody.innerHTML =
               '<tr><td colspan="6" class="no-data">No miners connected</td></tr>';
           } else {
-            tbody.innerHTML = data.miners
+            tbody.innerHTML = pageMiners
               .map((miner) => {
                 const diffCell =
                   miner.assigned_difficulty != null
@@ -1084,8 +1499,102 @@
               })
               .join("");
           }
+
+          // Update pagination controls
+          updateMinersPaginationControls();
         } catch (error) {
           console.error("Error fetching miners:", error);
+        }
+      }
+
+      function updateMinersPaginationControls() {
+        const totalPages =
+          Math.ceil(
+            minersPaginationState.miners.length / minersPaginationState.limit
+          ) || 1;
+        const pageInfo = document.getElementById("miners-page-info");
+        if (pageInfo) {
+          pageInfo.textContent = `Page ${minersPaginationState.page} of ${totalPages}`;
+        }
+
+        const prevBtn = document.getElementById("miners-prev-btn");
+        const nextBtn = document.getElementById("miners-next-btn");
+        if (prevBtn) prevBtn.disabled = minersPaginationState.page <= 1;
+        if (nextBtn)
+          nextBtn.disabled = minersPaginationState.page >= totalPages;
+      }
+
+      async function updateDisconnectedMiners() {
+        try {
+          const hours = parseInt(
+            document.getElementById("disconnected-miners-hours")?.value || "24"
+          );
+          const response = await fetch(
+            `/api/miners/disconnected?hours=${hours}&page=1&limit=50`
+          );
+          const data = await response.json();
+
+          const tbody = document.getElementById("disconnected-miners-body");
+          if (data.miners.length === 0) {
+            tbody.innerHTML =
+              '<tr><td colspan="5" class="no-data">No recently disconnected miners</td></tr>';
+          } else {
+            tbody.innerHTML = data.miners
+              .map((miner) => {
+                const lastSeen = new Date(miner.last_seen * 1000);
+                const timeAgo = getTimeAgo(lastSeen);
+                return `
+                <tr>
+                  <td title="${miner.worker_name}">${displayWorker(
+                  miner.worker_name
+                )}</td>
+                  <td>${miner.miner_software || "Unknown"}</td>
+                  <td>${timeAgo}</td>
+                  <td>${formatDate(lastSeen)}</td>
+                  <td>
+                    <button class="action-btn" onclick="clearMinerRecord('${miner.worker_name.replace(
+                      /'/g,
+                      "\\'"
+                    )}')">Clear</button>
+                  </td>
+                </tr>`;
+              })
+              .join("");
+          }
+        } catch (error) {
+          console.error("Error fetching disconnected miners:", error);
+        }
+      }
+
+      async function clearMinerRecord(workerName) {
+        if (
+          !confirm(
+            `Are you sure you want to delete the record for "${workerName}"?`
+          )
+        ) {
+          return;
+        }
+
+        try {
+          const response = await fetch(
+            `/api/miners/${encodeURIComponent(workerName)}/clear`,
+            {
+              method: "POST",
+            }
+          );
+
+          if (response.ok) {
+            await updateDisconnectedMiners();
+            showNotification(`Cleared record for ${workerName}`);
+          } else {
+            showNotification(
+              `Failed to clear record for ${workerName}`,
+              "error"
+            );
+          }
+        } catch (error) {
+          console.error("Error clearing miner record:", error);
+          showNotification("Error clearing miner record", "error");
         }
       }
 
@@ -1129,7 +1638,7 @@
               kHeightEl.title = `KCN blockchain height: ${kHeight}`;
             }
             if (kDiffEl && kDiff != null) {
-              kDiffEl.textContent = kDiff.toFixed(6);
+              kDiffEl.textContent = kDiff.toFixed(8);
               kDiffEl.title = `KCN network difficulty: ${kDiff}`;
             }
 
@@ -1192,60 +1701,198 @@
         }
       }
 
+      // Pagination state for blocks with localStorage persistence
+      const blocksPaginationState = {
+        kcn: { all: [], page: 1, perPage: 10, total: 0 },
+        lcn: { all: [], page: 1, perPage: 10, total: 0 },
+      };
+
+      // Load saved pagination state from localStorage
+      function loadPaginationState() {
+        try {
+          const saved = localStorage.getItem("blocksPaginationPages");
+          if (saved) {
+            const pages = JSON.parse(saved);
+            blocksPaginationState.kcn.page = pages.kcn || 1;
+            blocksPaginationState.lcn.page = pages.lcn || 1;
+          }
+        } catch (e) {
+          console.debug("Could not load pagination state:", e);
+        }
+      }
+
+      // Save pagination state to localStorage
+      function savePaginationState() {
+        try {
+          localStorage.setItem(
+            "blocksPaginationPages",
+            JSON.stringify({
+              kcn: blocksPaginationState.kcn.page,
+              lcn: blocksPaginationState.lcn.page,
+            })
+          );
+        } catch (e) {
+          console.debug("Could not save pagination state:", e);
+        }
+      }
+
       async function updateBlocks() {
         try {
-          const response = await fetch("/api/blocks?limit=40");
-          const data = await response.json();
+          // Calculate offset based on current page
+          const kcnPage = blocksPaginationState.kcn.page;
+          const lcnPage = blocksPaginationState.lcn.page;
+          const perPage = 10;
 
-          const kcnBody = document.getElementById("kcn-blocks-body");
-          const lcnBody = document.getElementById("lcn-blocks-body");
+          // Fetch KCN blocks for current page
+          const kcnOffset = (kcnPage - 1) * perPage;
+          const kcnResponse = await fetch(
+            `/api/blocks?limit=${perPage}&offset=${kcnOffset}`
+          );
+          const kcnData = await kcnResponse.json();
 
-          const kcnBlocks = data.blocks.filter((b) => b.chain === "KCN");
-          const lcnBlocks = data.blocks.filter((b) => b.chain === "LCN");
+          const kcnBlocks = kcnData.blocks.filter((b) => b.chain === "KCN");
+          const allKcnTotal = kcnData.blocks.filter(
+            (b) => b.chain === "KCN"
+          ).length;
 
-          function renderBlockRow(block) {
-            const absTime = new Date(block.timestamp * 1000).toISOString();
-            const explorerBase =
-              block.chain === "KCN"
-                ? "https://kcnxp.com/block/"
-                : "https://lcnxp.com/block/";
-            return `
-              <tr>
-                <td class="col-num">${block.height}</td>
-                <td class="hash-short">
-                  <div class="copy-wrap" title="${block.block_hash}">
-                    <a class="hash-link" href="${
-                      explorerBase + block.block_hash
-                    }" target="_blank" rel="noopener" aria-label="View block on explorer">${shortenHash(
-              block.block_hash
-            )}</a>
-                    <button class="copy-btn" onclick="copyToClipboard('${
-                      block.block_hash
-                    }', this)" aria-label="Copy block hash">Copy</button>
-                  </div>
-                </td>
-                <td title="${block.worker}">${displayWorker(block.worker)}</td>
-                <td><span class="badge badge-${
-                  block.accepted ? "accepted" : "rejected"
-                }">${block.accepted ? "Accepted" : "Rejected"}</span></td>
-                <td class="col-num" title="${absTime}">${formatTime(
-              block.timestamp
-            )}</td>
-              </tr>`;
-          }
+          // Fetch LCN blocks for current page
+          const lcnOffset = (lcnPage - 1) * perPage;
+          const lcnResponse = await fetch(
+            `/api/blocks?limit=${perPage}&offset=${lcnOffset}`
+          );
+          const lcnData = await lcnResponse.json();
 
-          kcnBody.innerHTML = kcnBlocks.length
-            ? kcnBlocks.map(renderBlockRow).join("")
-            : '<tr><td colspan="5" class="no-data">No KCN blocks yet</td></tr>';
-          lcnBody.innerHTML = lcnBlocks.length
-            ? lcnBlocks.map(renderBlockRow).join("")
-            : '<tr><td colspan="5" class="no-data">No LCN blocks yet</td></tr>';
+          const lcnBlocks = lcnData.blocks.filter((b) => b.chain === "LCN");
+
+          // Store blocks and total count for pagination
+          blocksPaginationState.kcn.all = kcnBlocks;
+          blocksPaginationState.kcn.total = kcnData.total;
+          blocksPaginationState.lcn.all = lcnBlocks;
+          blocksPaginationState.lcn.total = kcnData.total;
+
+          // Render current pages
+          renderBlocksPage("kcn");
+          renderBlocksPage("lcn");
         } catch (error) {
           console.error("Error fetching blocks:", error);
           document.getElementById("kcn-blocks-body").innerHTML =
             '<tr><td colspan="5" class="no-data">Error</td></tr>';
           document.getElementById("lcn-blocks-body").innerHTML =
             '<tr><td colspan="5" class="no-data">Error</td></tr>';
+        }
+      }
+
+      function renderBlocksPage(chain) {
+        const state = blocksPaginationState[chain];
+        const tbody = document.getElementById(`${chain}-blocks-body`);
+        const paginationDiv = document.getElementById(`${chain}-pagination`);
+        const pageInfo = document.getElementById(`${chain}-page-info`);
+        const blocks = state.all;
+        const page = state.page;
+        const totalCount = state.total;
+
+        // Calculate total pages from server-reported total
+        const perPage = 10;
+        const totalPages = Math.ceil(totalCount / perPage);
+
+        function renderBlockRow(block) {
+          const absTime = new Date(block.timestamp * 1000).toISOString();
+          const explorerBase =
+            block.chain === "KCN"
+              ? "https://kcnxp.com/block/"
+              : "https://lcnxp.com/block/";
+          return `
+            <tr>
+              <td class="col-num">${block.height}</td>
+              <td class="hash-short">
+                <div class="copy-wrap" title="${block.block_hash}">
+                  <a class="hash-link" href="${
+                    explorerBase + block.block_hash
+                  }" target="_blank" rel="noopener" aria-label="View block on explorer">${shortenHash(
+            block.block_hash
+          )}</a>
+                  <button class="copy-btn" onclick="copyToClipboard('${
+                    block.block_hash
+                  }', this)" aria-label="Copy block hash">Copy</button>
+                </div>
+              </td>
+              <td title="${block.worker}">${displayWorker(block.worker)}</td>
+              <td><span class="badge badge-${
+                block.accepted ? "accepted" : "rejected"
+              }">${block.accepted ? "Accepted" : "Rejected"}</span></td>
+              <td class="col-num" title="${absTime}">${formatTime(
+            block.timestamp
+          )}</td>
+            </tr>`;
+        }
+
+        // Render table
+        if (blocks.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="5" class="no-data">No ${chain.toUpperCase()} blocks yet</td></tr>`;
+          paginationDiv.style.display = "none";
+        } else {
+          tbody.innerHTML = blocks.map(renderBlockRow).join("");
+
+          // Show pagination if multiple pages
+          if (totalPages > 1) {
+            paginationDiv.style.display = "flex";
+            pageInfo.textContent = `Page ${page} of ${totalPages}`;
+
+            // Update button states
+            const prevBtn = paginationDiv.querySelector(
+              '[onclick*="prevBlocksPage"]'
+            );
+            const nextBtn = paginationDiv.querySelector(
+              '[onclick*="nextBlocksPage"]'
+            );
+            if (prevBtn) prevBtn.disabled = page === 1;
+            if (nextBtn) nextBtn.disabled = page === totalPages;
+          } else {
+            paginationDiv.style.display = "none";
+          }
+        }
+      }
+
+      function prevBlocksPage(chain) {
+        if (blocksPaginationState[chain].page > 1) {
+          blocksPaginationState[chain].page--;
+          savePaginationState();
+          updateBlocksForChain(chain);
+        }
+      }
+
+      function nextBlocksPage(chain) {
+        const state = blocksPaginationState[chain];
+        const perPage = 10;
+        const totalPages = Math.ceil(state.total / perPage);
+        if (state.page < totalPages) {
+          state.page++;
+          savePaginationState();
+          updateBlocksForChain(chain);
+        }
+      }
+
+      // Update blocks for a specific chain only
+      async function updateBlocksForChain(chain) {
+        try {
+          const state = blocksPaginationState[chain];
+          const perPage = 10;
+          const offset = (state.page - 1) * perPage;
+
+          const response = await fetch(
+            `/api/blocks?limit=${perPage}&offset=${offset}`
+          );
+          const data = await response.json();
+
+          const chainBlocks = data.blocks.filter(
+            (b) => b.chain === chain.toUpperCase()
+          );
+          state.all = chainBlocks;
+          state.total = data.total;
+
+          renderBlocksPage(chain);
+        } catch (error) {
+          console.error(`Error fetching ${chain} blocks:`, error);
         }
       }
 
@@ -1468,6 +2115,32 @@
         }
       }
 
+      function showNotification(message, type = "success") {
+        // Create a notification element
+        const notif = document.createElement("div");
+        notif.textContent = message;
+        notif.style.cssText = `
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          padding: 12px 16px;
+          background: ${type === "error" ? "#e74c3c" : "#27ae60"};
+          color: white;
+          border-radius: 4px;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+          z-index: 10000;
+          font-weight: 500;
+          animation: slideIn 0.3s ease-out;
+        `;
+        document.body.appendChild(notif);
+
+        // Auto-remove after 3 seconds
+        setTimeout(() => {
+          notif.style.animation = "slideOut 0.3s ease-in";
+          setTimeout(() => notif.remove(), 300);
+        }, 3000);
+      }
+
       function updateAll() {
         updateMiners();
         updateStats();
@@ -1475,11 +2148,13 @@
         updateBestShares();
         updatePayouts();
         updateDaemonStatus(); // Add daemon status updates
+        updateDisconnectedMiners(); // Update disconnected miners list
         document.getElementById("last-update").textContent =
           new Date().toLocaleTimeString();
       }
 
       // Initial load
+      loadPaginationState(); // Load saved pagination state before updating
       updateAll();
       updateSystemConfig(); // Load system config once on startup
       checkLcnHashFixStatus(); // Check if LCN hash fix is needed
@@ -1712,6 +2387,306 @@
           }
           setLabel();
         });
+      })();
+
+      // Chart.js configurations and functions
+      let difficultyChart = null;
+      let hashrateChart = null;
+      let currentDifficultyHours = 24;
+      let currentHashrateHours = 24;
+
+      function getChartColors() {
+        const root = document.documentElement;
+        const isDark =
+          !root.getAttribute("data-theme") ||
+          root.getAttribute("data-theme") === "dark";
+        return {
+          kcnColor: isDark ? "#ff1493" : "#d91e63",
+          lcnColor: isDark ? "#ff8c00" : "#f57c00",
+          gridColor: isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)",
+          textColor: isDark ? "#e0e0e0" : "#333333",
+          backgroundColor: isDark ? "#1a1a1a" : "#ffffff",
+        };
+      }
+
+      async function updateDifficultyChart(hours) {
+        currentDifficultyHours = hours;
+        const colors = getChartColors();
+
+        try {
+          // Fetch KCN difficulty history
+          const kcnRes = await fetch(
+            `/api/difficulty-history/KCN?hours=${hours}`
+          );
+          const kcnData = await kcnRes.json();
+
+          // Fetch LCN difficulty history
+          const lcnRes = await fetch(
+            `/api/difficulty-history/LCN?hours=${hours}`
+          );
+          const lcnData = await lcnRes.json();
+
+          // Prepare chart data
+          const kcnPoints = kcnData.data || [];
+          const lcnPoints = lcnData.data || [];
+
+          // Get all unique timestamps and sort
+          const timestamps = new Set();
+          kcnPoints.forEach((p) => timestamps.add(p.timestamp));
+          lcnPoints.forEach((p) => timestamps.add(p.timestamp));
+          const sortedTimestamps = Array.from(timestamps).sort((a, b) => a - b);
+
+          // Format timestamps for display
+          const labels = sortedTimestamps.map((ts) => {
+            const date = new Date(ts * 1000);
+            const hour = String(date.getHours()).padStart(2, "0");
+            const min = String(date.getMinutes()).padStart(2, "0");
+            return `${hour}:${min}`;
+          });
+
+          // Create data point lookups
+          const kcnLookup = {};
+          kcnPoints.forEach((p) => (kcnLookup[p.timestamp] = p.difficulty));
+          const lcnLookup = {};
+          lcnPoints.forEach((p) => (lcnLookup[p.timestamp] = p.difficulty));
+
+          // Build datasets with null for missing values
+          const kcnDataset = sortedTimestamps.map(
+            (ts) => kcnLookup[ts] || null
+          );
+          const lcnDataset = sortedTimestamps.map(
+            (ts) => lcnLookup[ts] || null
+          );
+
+          const ctx = document
+            .getElementById("difficulty-chart")
+            .getContext("2d");
+
+          if (difficultyChart) {
+            difficultyChart.destroy();
+          }
+
+          difficultyChart = new Chart(ctx, {
+            type: "line",
+            data: {
+              labels: labels,
+              datasets: [
+                {
+                  label: "KCN Difficulty",
+                  data: kcnDataset,
+                  borderColor: colors.kcnColor,
+                  backgroundColor: colors.kcnColor + "15",
+                  borderWidth: 2,
+                  fill: true,
+                  tension: 0.4,
+                  pointRadius: 3,
+                  pointBackgroundColor: colors.kcnColor,
+                  pointBorderColor: colors.backgroundColor,
+                  pointBorderWidth: 2,
+                },
+                {
+                  label: "LCN Difficulty",
+                  data: lcnDataset,
+                  borderColor: colors.lcnColor,
+                  backgroundColor: colors.lcnColor + "15",
+                  borderWidth: 2,
+                  fill: true,
+                  tension: 0.4,
+                  pointRadius: 3,
+                  pointBackgroundColor: colors.lcnColor,
+                  pointBorderColor: colors.backgroundColor,
+                  pointBorderWidth: 2,
+                },
+              ],
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: {
+                  display: true,
+                  labels: {
+                    color: colors.textColor,
+                    usePointStyle: true,
+                    padding: 20,
+                    font: { size: 12 },
+                  },
+                },
+                filler: {
+                  propagate: true,
+                },
+                tooltip: {
+                  callbacks: {
+                    label: function (context) {
+                      let label = context.dataset.label || "";
+                      if (label) {
+                        label += ": ";
+                      }
+                      if (context.parsed.y !== null) {
+                        label += context.parsed.y.toFixed(6);
+                      }
+                      return label;
+                    },
+                  },
+                },
+              },
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  grid: {
+                    color: colors.gridColor,
+                  },
+                  ticks: {
+                    color: colors.textColor,
+                    font: { size: 11 },
+                  },
+                },
+                x: {
+                  grid: {
+                    color: colors.gridColor,
+                  },
+                  ticks: {
+                    color: colors.textColor,
+                    font: { size: 11 },
+                    maxTicksLimit: 12,
+                  },
+                },
+              },
+            },
+          });
+        } catch (error) {
+          console.error("Error updating difficulty chart:", error);
+        }
+      }
+
+      async function updateHashrateChart(hours) {
+        currentHashrateHours = hours;
+        const colors = getChartColors();
+
+        try {
+          const res = await fetch(`/api/hashrate-history?hours=${hours}`);
+          const data = await res.json();
+          const points = data.data || [];
+
+          // Sort by timestamp
+          points.sort((a, b) => a.timestamp - b.timestamp);
+
+          // Format labels
+          const labels = points.map((p) => {
+            const date = new Date(p.timestamp * 1000);
+            const hour = String(date.getHours()).padStart(2, "0");
+            const min = String(date.getMinutes()).padStart(2, "0");
+            return `${hour}:${min}`;
+          });
+
+          // Convert hashrate to KH/s for display
+          const hashrates = points.map((p) => p.hashrate_hs / 1e3);
+
+          // Calculate average and peak
+          const avg =
+            hashrates.length > 0
+              ? hashrates.reduce((a, b) => a + b, 0) / hashrates.length
+              : 0;
+          const peak = hashrates.length > 0 ? Math.max(...hashrates) : 0;
+
+          const ctx = document
+            .getElementById("hashrate-chart")
+            .getContext("2d");
+
+          if (hashrateChart) {
+            hashrateChart.destroy();
+          }
+
+          hashrateChart = new Chart(ctx, {
+            type: "line",
+            data: {
+              labels: labels,
+              datasets: [
+                {
+                  label: "Hashrate (KH/s)",
+                  data: hashrates,
+                  borderColor: colors.kcnColor,
+                  backgroundColor: colors.kcnColor + "25",
+                  borderWidth: 2.5,
+                  fill: true,
+                  tension: 0.4,
+                  pointRadius: 2,
+                  pointBackgroundColor: colors.kcnColor,
+                  pointBorderColor: colors.backgroundColor,
+                  pointBorderWidth: 1,
+                },
+                {
+                  label: `Average (${avg.toFixed(2)} KH/s)`,
+                  data: new Array(labels.length).fill(avg),
+                  borderColor: colors.textColor,
+                  borderWidth: 1,
+                  borderDash: [5, 5],
+                  fill: false,
+                  pointRadius: 0,
+                  pointHoverRadius: 0,
+                  tension: 0,
+                },
+              ],
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: {
+                  display: true,
+                  labels: {
+                    color: colors.textColor,
+                    usePointStyle: true,
+                    padding: 20,
+                    font: { size: 12 },
+                  },
+                },
+                filler: {
+                  propagate: true,
+                },
+              },
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  grid: {
+                    color: colors.gridColor,
+                  },
+                  ticks: {
+                    color: colors.textColor,
+                    font: { size: 11 },
+                    callback: function (value) {
+                      return value.toFixed(1) + " KH/s";
+                    },
+                  },
+                },
+                x: {
+                  grid: {
+                    color: colors.gridColor,
+                  },
+                  ticks: {
+                    color: colors.textColor,
+                    font: { size: 11 },
+                    maxTicksLimit: 12,
+                  },
+                },
+              },
+            },
+          });
+        } catch (error) {
+          console.error("Error updating hashrate chart:", error);
+        }
+      }
+
+      // Initial chart loading
+      (function initCharts() {
+        updateDifficultyChart(24);
+        updateHashrateChart(24);
+
+        // Refresh charts every 5 minutes
+        setInterval(() => {
+          updateDifficultyChart(currentDifficultyHours);
+          updateHashrateChart(currentHashrateHours);
+        }, 5 * 60 * 1000);
       })();
     </script>
   </body>

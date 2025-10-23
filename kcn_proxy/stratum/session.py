@@ -358,6 +358,16 @@ class StratumSession(RPCSession):
                 miner_software=miner_software,
             )
 
+            # Mark miner as disconnected in database
+            try:
+                from ..db.schema import mark_miner_disconnected
+
+                await mark_miner_disconnected(worker)
+            except ImportError:
+                pass  # Database not enabled
+            except Exception as e:
+                self.logger.debug("Miner session disconnect marking failed: %s", e)
+
             # Log to database if enabled
             try:
                 from ..db.schema import log_connection_event
@@ -479,6 +489,19 @@ class StratumSession(RPCSession):
             worker=username,
             miner_software=miner_software,
         )
+
+        # Record miner session in database
+        try:
+            from ..db.schema import record_miner_session
+
+            await record_miner_session(
+                worker_name=username,
+                miner_software=miner_software or "Unknown",
+            )
+        except ImportError:
+            pass  # Database not enabled
+        except Exception as e:
+            self.logger.debug("Miner session recording failed: %s", e)
 
         # Log to database if enabled
         try:
