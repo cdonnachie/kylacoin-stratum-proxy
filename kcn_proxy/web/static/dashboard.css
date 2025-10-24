@@ -882,3 +882,115 @@ body[data-compact-workers="true"] .dual-blocks {
 .action-btn:active {
   transform: translateY(1px);
 }
+
+/* Modal dialog styles */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 999;
+  animation: fadeIn var(--fast);
+}
+
+.confirm-modal {
+  display: none;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1000;
+  animation: slideDown var(--fast);
+}
+
+.modal-content {
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  padding: 32px;
+  min-width: 320px;
+  max-width: 500px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(10px);
+}
+
+.modal-content h2 {
+  margin: 0 0 12px 0;
+  font-size: 1.3em;
+  color: var(--text);
+  word-wrap: break-word;
+}
+
+.modal-content p {
+  margin: 0 0 24px 0;
+  color: var(--text-dim);
+  line-height: 1.5;
+  word-wrap: break-word;
+}
+
+.modal-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.modal-btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.95em;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--fast);
+  letter-spacing: 0.5px;
+}
+
+.modal-btn-cancel {
+  background: var(--btn-bg);
+  color: var(--text);
+  border: 1px solid var(--btn-border);
+}
+
+.modal-btn-cancel:hover {
+  background: var(--btn-bg-hover);
+  border-color: var(--btn-border);
+}
+
+.modal-btn-confirm {
+  background: #05a532;
+  color: white;
+  border: 1px solid #048c2f;
+}
+
+.modal-btn-confirm:hover {
+  background: #067a3a;
+  border-color: #048c2f;
+  box-shadow: 0 0 8px rgba(5, 165, 50, 0.3);
+}
+
+.modal-btn:active {
+  transform: translateY(1px);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -55%);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+}

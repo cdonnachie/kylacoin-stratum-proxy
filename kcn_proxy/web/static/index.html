@@ -500,7 +500,7 @@
         </div>
       </div>
 
-      <div class="section">
+      <div class="section" id="section-recently-seen-miners">
         <h2>
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -726,7 +726,7 @@
         </div>
       </div>
 
-      <div class="section">
+      <div class="section" id="section-difficulty-chart">
         <h2>
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -779,7 +779,7 @@
         </div>
       </div>
 
-      <div class="section">
+      <div class="section" id="section-hashrate-chart">
         <h2>
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -1567,11 +1567,14 @@
       }
 
       async function clearMinerRecord(workerName) {
-        if (
-          !confirm(
-            `Are you sure you want to delete the record for "${workerName}"?`
-          )
-        ) {
+        const confirmed = await showConfirmModal(
+          "Delete Miner Record",
+          `Are you sure you want to delete the record for "${workerName}"?`,
+          "Delete",
+          "Cancel"
+        );
+
+        if (!confirmed) {
           return;
         }
 
@@ -1703,8 +1706,8 @@
 
       // Pagination state for blocks with localStorage persistence
       const blocksPaginationState = {
-        kcn: { all: [], page: 1, perPage: 10, total: 0 },
-        lcn: { all: [], page: 1, perPage: 10, total: 0 },
+        kcn: { all: [], page: 1, perPage: 10, total: 0, lastSeenTotal: 0 },
+        lcn: { all: [], page: 1, perPage: 10, total: 0, lastSeenTotal: 0 },
       };
 
       // Load saved pagination state from localStorage
@@ -1764,11 +1767,41 @@
 
           const lcnBlocks = lcnData.blocks.filter((b) => b.chain === "LCN");
 
+          // Check for new KCN blocks
+          if (
+            blocksPaginationState.kcn.lastSeenTotal > 0 &&
+            kcnData.total > blocksPaginationState.kcn.lastSeenTotal
+          ) {
+            const newBlocksCount =
+              kcnData.total - blocksPaginationState.kcn.lastSeenTotal;
+            showNotification(
+              `🎉 ${newBlocksCount} new KCN block${
+                newBlocksCount > 1 ? "s" : ""
+              } found!`
+            );
+          }
+
+          // Check for new LCN blocks
+          if (
+            blocksPaginationState.lcn.lastSeenTotal > 0 &&
+            kcnData.total > blocksPaginationState.lcn.lastSeenTotal
+          ) {
+            const newBlocksCount =
+              kcnData.total - blocksPaginationState.lcn.lastSeenTotal;
+            showNotification(
+              `🎉 ${newBlocksCount} new LCN block${
+                newBlocksCount > 1 ? "s" : ""
+              } found!`
+            );
+          }
+
           // Store blocks and total count for pagination
           blocksPaginationState.kcn.all = kcnBlocks;
           blocksPaginationState.kcn.total = kcnData.total;
+          blocksPaginationState.kcn.lastSeenTotal = kcnData.total;
           blocksPaginationState.lcn.all = lcnBlocks;
           blocksPaginationState.lcn.total = kcnData.total;
+          blocksPaginationState.lcn.lastSeenTotal = kcnData.total;
 
           // Render current pages
           renderBlocksPage("kcn");
@@ -2098,9 +2131,24 @@
             dbEl.style.display = "flex";
           }
 
+          // Show/hide chart sections based on database status
+          const difficultyChartSection = document.getElementById(
+            "section-difficulty-chart"
+          );
+          const hashrateChartSection = document.getElementById(
+            "section-hashrate-chart"
+          );
+          if (!config.database?.enabled) {
+            if (difficultyChartSection)
+              difficultyChartSection.style.display = "none";
+            if (hashrateChartSection)
+              hashrateChartSection.style.display = "none";
+          }
+
           // Stratum port (always show)
           const stratumEl = document.getElementById("status-stratum");
           if (config.stratum?.port) {
+            stratumEl.style.display = "flex";
             const detail = stratumEl.querySelector(".status-detail");
             detail.textContent = config.stratum.port;
             stratumEl.title = `Stratum server listening on port ${config.stratum.port}`;
@@ -2234,11 +2282,14 @@
         const btn = document.getElementById("clear-best-shares");
         if (!btn) return;
         btn.addEventListener("click", async () => {
-          if (
-            !confirm(
-              "Clear all best shares and start over? This cannot be undone."
-            )
-          ) {
+          const confirmed = await showConfirmModal(
+            "Clear Best Shares",
+            "Clear all best shares and start over? This cannot be undone.",
+            "Clear All",
+            "Cancel"
+          );
+
+          if (!confirmed) {
             return;
           }
           btn.disabled = true;
@@ -2277,12 +2328,14 @@
             limitInput && limitInput.value.trim() !== ""
               ? limitInput.value.trim()
               : null;
-          if (
-            !confirm(
-              `Run LCN hash correction now?${dryRun ? " (dry‑run)" : ""}`
-            )
-          )
-            return;
+          const confirmed = await showConfirmModal(
+            "Fix LCN Hashes",
+            `Run LCN hash correction now?${dryRun ? " (dry‑run)" : ""}`,
+            "Run",
+            "Cancel"
+          );
+
+          if (!confirmed) return;
           btn.disabled = true;
           const original = btn.textContent;
           btn.textContent = "Running...";
@@ -2688,6 +2741,81 @@
           updateHashrateChart(currentHashrateHours);
         }, 5 * 60 * 1000);
       })();
+
+      // Modal dialog system
+      function showConfirmModal(
+        title,
+        message,
+        confirmText = "Confirm",
+        cancelText = "Cancel",
+        onConfirm = null,
+        onCancel = null
+      ) {
+        return new Promise((resolve) => {
+          const modal = document.getElementById("confirmModal");
+          const overlay = document.getElementById("modalOverlay");
+          const titleEl = document.getElementById("modalTitle");
+          const messageEl = document.getElementById("modalMessage");
+          const confirmBtn = document.getElementById("modalConfirmBtn");
+          const cancelBtn = document.getElementById("modalCancelBtn");
+
+          titleEl.textContent = title;
+          messageEl.textContent = message;
+          confirmBtn.textContent = confirmText;
+          cancelBtn.textContent = cancelText;
+
+          const handleConfirm = () => {
+            cleanup();
+            if (onConfirm) onConfirm();
+            resolve(true);
+          };
+
+          const handleCancel = () => {
+            cleanup();
+            if (onCancel) onCancel();
+            resolve(false);
+          };
+
+          const cleanup = () => {
+            modal.style.display = "none";
+            overlay.style.display = "none";
+            confirmBtn.removeEventListener("click", handleConfirm);
+            cancelBtn.removeEventListener("click", handleCancel);
+            overlay.removeEventListener("click", handleCancel);
+            document.removeEventListener("keydown", handleEscape);
+          };
+
+          const handleEscape = (e) => {
+            if (e.key === "Escape") handleCancel();
+          };
+
+          confirmBtn.addEventListener("click", handleConfirm);
+          cancelBtn.addEventListener("click", handleCancel);
+          overlay.addEventListener("click", handleCancel);
+          document.addEventListener("keydown", handleEscape);
+
+          modal.style.display = "flex";
+          overlay.style.display = "block";
+          confirmBtn.focus();
+        });
+      }
     </script>
+
+    <!-- Confirmation Modal -->
+    <div id="modalOverlay" class="modal-overlay"></div>
+    <div id="confirmModal" class="confirm-modal">
+      <div class="modal-content">
+        <h2 id="modalTitle"></h2>
+        <p id="modalMessage"></p>
+        <div class="modal-buttons">
+          <button id="modalCancelBtn" class="modal-btn modal-btn-cancel">
+            Cancel
+          </button>
+          <button id="modalConfirmBtn" class="modal-btn modal-btn-confirm">
+            Confirm
+          </button>
+        </div>
+      </div>
+    </div>
   </body>
 </html>

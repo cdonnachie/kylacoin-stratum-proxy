@@ -1185,6 +1185,25 @@ class StratumSession(RPCSession):
                     except Exception as e:
                         self.logger.debug("Database logging failed: %s", e)
 
+                    # Also log to in-memory tracker as fallback
+                    try:
+                        import time
+
+                        from ..web.block_tracker import get_block_tracker
+
+                        tracker = get_block_tracker()
+                        tracker.add_block(
+                            chain="KCN",
+                            height=kcn_height_for_notif,
+                            block_hash=parent_block_hash_for_auxpow.hex(),
+                            worker=worker,
+                            timestamp=int(time.time()),
+                            accepted=True,
+                            difficulty=share_diff,
+                        )
+                    except Exception as e:
+                        self.logger.debug("In-memory block tracking failed: %s", e)
+
                 if lcn_accepted:
                     # For the aux (LCN) chain, we should record the aux hash, not the parent KCN block hash
                     lcn_aux_hash = getattr(aux_job_snapshot, "aux_hash", None)
@@ -1221,6 +1240,25 @@ class StratumSession(RPCSession):
                         pass  # Database not enabled
                     except Exception as e:
                         self.logger.debug("Database logging failed: %s", e)
+
+                    # Also log to in-memory tracker as fallback
+                    try:
+                        import time
+
+                        from ..web.block_tracker import get_block_tracker
+
+                        tracker = get_block_tracker()
+                        tracker.add_block(
+                            chain="LCN",
+                            height=lcn_height_for_notif,
+                            block_hash=lcn_aux_hash,
+                            worker=worker,
+                            timestamp=int(time.time()),
+                            accepted=True,
+                            difficulty=share_diff,
+                        )
+                    except Exception as e:
+                        self.logger.debug("In-memory block tracking failed: %s", e)
         return True
 
     async def handle_eth_submitHashrate(self, hashrate: str, clientid: str):

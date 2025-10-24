@@ -218,25 +218,58 @@ async def get_active_miners():
 
 @app.get("/api/blocks")
 async def get_blocks(limit: int = 100, offset: int = 0):
-    """Get recent blocks found with pagination support"""
-    from ..db.schema import get_recent_blocks
+    """Get recent blocks found with pagination support (with in-memory fallback)"""
+    try:
+        from ..db.schema import get_recent_blocks
 
-    result = await get_recent_blocks(limit, offset)
-    return JSONResponse(
-        {
-            "blocks": result["blocks"],
-            "total": result["total"],
-        }
-    )
+        result = await get_recent_blocks(limit, offset)
+        return JSONResponse(
+            {
+                "blocks": result["blocks"],
+                "total": result["total"],
+                "source": "database",
+            }
+        )
+    except Exception as e:
+        # Fallback to in-memory tracker when database unavailable
+        logger.warning(
+            f"Database unavailable for blocks, using in-memory fallback: {e}"
+        )
+        from .block_tracker import get_block_tracker
+
+        tracker = get_block_tracker()
+        result = tracker.get_all_blocks(limit, offset)
+        return JSONResponse(
+            {
+                "blocks": result["blocks"],
+                "total": result["total"],
+                "source": "memory",
+            }
+        )
 
 
 @app.get("/api/blocks/{chain}")
 async def get_chain_blocks(chain: str, limit: int = 10):
-    """Get recent blocks for a specific chain (KCN or LCN)"""
-    from ..db.schema import get_blocks_by_chain
+    """Get recent blocks for a specific chain (KCN or LCN) with in-memory fallback"""
+    try:
+        from ..db.schema import get_blocks_by_chain
 
-    blocks = await get_blocks_by_chain(chain.upper(), limit)
-    return JSONResponse({"blocks": blocks, "chain": chain.upper()})
+        blocks = await get_blocks_by_chain(chain.upper(), limit)
+        return JSONResponse(
+            {"blocks": blocks, "chain": chain.upper(), "source": "database"}
+        )
+    except Exception as e:
+        # Fallback to in-memory tracker when database unavailable
+        logger.warning(
+            f"Database unavailable for {chain} blocks, using in-memory fallback: {e}"
+        )
+        from .block_tracker import get_block_tracker
+
+        tracker = get_block_tracker()
+        blocks = tracker.get_blocks_by_chain(chain.upper(), limit)
+        return JSONResponse(
+            {"blocks": blocks, "chain": chain.upper(), "source": "memory"}
+        )
 
 
 @app.get("/api/best-shares")
