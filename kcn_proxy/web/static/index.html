@@ -2789,9 +2789,21 @@
           // Format timestamps for display
           const labels = sortedTimestamps.map((ts) => {
             const date = new Date(ts * 1000);
-            const hour = String(date.getHours()).padStart(2, "0");
-            const min = String(date.getMinutes()).padStart(2, "0");
-            return `${hour}:${min}`;
+
+            // Show different format based on time range
+            if (hours <= 24) {
+              // 24h: Show time only (HH:MM)
+              const hour = String(date.getHours()).padStart(2, "0");
+              const min = String(date.getMinutes()).padStart(2, "0");
+              return `${hour}:${min}`;
+            } else {
+              // 7d and 30d: Show date and time (MM/DD HH:MM)
+              const month = String(date.getMonth() + 1).padStart(2, "0");
+              const day = String(date.getDate()).padStart(2, "0");
+              const hour = String(date.getHours()).padStart(2, "0");
+              const min = String(date.getMinutes()).padStart(2, "0");
+              return `${month}/${day} ${hour}:${min}`;
+            }
           });
 
           // Create data point lookups
@@ -2924,9 +2936,21 @@
           // Format labels
           const labels = points.map((p) => {
             const date = new Date(p.timestamp * 1000);
-            const hour = String(date.getHours()).padStart(2, "0");
-            const min = String(date.getMinutes()).padStart(2, "0");
-            return `${hour}:${min}`;
+
+            // Show different format based on time range
+            if (hours <= 24) {
+              // 24h: Show time only (HH:MM)
+              const hour = String(date.getHours()).padStart(2, "0");
+              const min = String(date.getMinutes()).padStart(2, "0");
+              return `${hour}:${min}`;
+            } else {
+              // 7d and 30d: Show date and time (MM/DD HH:MM)
+              const month = String(date.getMonth() + 1).padStart(2, "0");
+              const day = String(date.getDate()).padStart(2, "0");
+              const hour = String(date.getHours()).padStart(2, "0");
+              const min = String(date.getMinutes()).padStart(2, "0");
+              return `${month}/${day} ${hour}:${min}`;
+            }
           });
 
           // Convert hashrate to KH/s for display

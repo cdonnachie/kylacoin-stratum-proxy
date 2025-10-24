@@ -696,7 +696,15 @@ async def record_difficulty_snapshot(chain: str, difficulty: float):
 
 
 async def get_difficulty_history(chain: str, hours: int = 24):
-    """Get difficulty history for a specific chain within the last N hours"""
+    """Get difficulty history for a specific chain within the last N hours
+
+    For longer time ranges, data is downsampled to show meaningful trends:
+    - 24h: 15-minute aggregates (~96 points)
+    - 7d: 30-minute aggregates (~336 points)
+    - 30d: 2-hour aggregates (~360 points)
+
+    Also filters out zero/null values when not actively mining.
+    """
     import time
 
     cutoff = int(time.time()) - (hours * 3600)
@@ -707,16 +715,44 @@ async def get_difficulty_history(chain: str, hours: int = 24):
             """
             SELECT timestamp, difficulty
             FROM difficulty_history
-            WHERE chain = ? AND timestamp > ?
+            WHERE chain = ? AND timestamp > ? AND difficulty > 0
             ORDER BY timestamp ASC
             """,
             (chain, cutoff),
         )
         rows = await cursor.fetchall()
-        return [
-            {"timestamp": row["timestamp"], "difficulty": row["difficulty"]}
-            for row in rows
-        ]
+
+        # Determine aggregation bucket size based on time range
+        if hours <= 24:
+            # 24h: aggregate into 15-minute buckets (~96 points)
+            bucket_seconds = 900
+        elif hours <= 7 * 24:
+            # 7d: aggregate into ~30-minute buckets (~336 points)
+            bucket_seconds = 1800
+        else:
+            # 30d+: aggregate into ~2-hour buckets (~360 points)
+            bucket_seconds = 7200
+
+        # Aggregate data into buckets
+        from collections import defaultdict
+
+        buckets = defaultdict(list)
+
+        for row in rows:
+            # Put each data point into its bucket
+            bucket_idx = row["timestamp"] // bucket_seconds
+            buckets[bucket_idx].append(row["difficulty"])
+
+        # Calculate average difficulty for each bucket
+        result = []
+        for bucket_idx in sorted(buckets.keys()):
+            difficulties = buckets[bucket_idx]
+            if difficulties:
+                avg_difficulty = sum(difficulties) / len(difficulties)
+                timestamp = bucket_idx * bucket_seconds
+                result.append({"timestamp": timestamp, "difficulty": avg_difficulty})
+
+        return result
 
 
 async def record_hashrate_snapshot(hashrate_hs: float):
@@ -735,7 +771,15 @@ async def record_hashrate_snapshot(hashrate_hs: float):
 
 
 async def get_hashrate_history(hours: int = 24):
-    """Get hashrate history for the last N hours"""
+    """Get hashrate history for the last N hours
+
+    For longer time ranges, data is downsampled to show meaningful trends:
+    - 24h: 15-minute aggregates (~96 points)
+    - 7d: 30-minute aggregates (~336 points)
+    - 30d: 2-hour aggregates (~360 points)
+
+    Also filters out zero values when not actively mining.
+    """
     import time
 
     cutoff = int(time.time()) - (hours * 3600)
@@ -746,16 +790,44 @@ async def get_hashrate_history(hours: int = 24):
             """
             SELECT timestamp, hashrate_hs
             FROM hashrate_history
-            WHERE timestamp > ?
+            WHERE timestamp > ? AND hashrate_hs > 0
             ORDER BY timestamp ASC
             """,
             (cutoff,),
         )
         rows = await cursor.fetchall()
-        return [
-            {"timestamp": row["timestamp"], "hashrate_hs": row["hashrate_hs"]}
-            for row in rows
-        ]
+
+        # Determine aggregation bucket size based on time range
+        if hours <= 24:
+            # 24h: aggregate into 15-minute buckets (~96 points)
+            bucket_seconds = 900
+        elif hours <= 7 * 24:
+            # 7d: aggregate into ~30-minute buckets (~336 points)
+            bucket_seconds = 1800
+        else:
+            # 30d+: aggregate into ~2-hour buckets (~360 points)
+            bucket_seconds = 7200
+
+        # Aggregate data into buckets
+        from collections import defaultdict
+
+        buckets = defaultdict(list)
+
+        for row in rows:
+            # Put each data point into its bucket
+            bucket_idx = row["timestamp"] // bucket_seconds
+            buckets[bucket_idx].append(row["hashrate_hs"])
+
+        # Calculate average hashrate for each bucket
+        result = []
+        for bucket_idx in sorted(buckets.keys()):
+            hashrates = buckets[bucket_idx]
+            if hashrates:
+                avg_hashrate = sum(hashrates) / len(hashrates)
+                timestamp = bucket_idx * bucket_seconds
+                result.append({"timestamp": timestamp, "hashrate_hs": avg_hashrate})
+
+        return result
 
 
 async def record_miner_session(worker_name: str, miner_software: str = None):

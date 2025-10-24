@@ -317,6 +317,11 @@ class StratumSession(RPCSession):
         self._keepalive_task = None  # Keepalive task reference
         self._last_activity = None  # Track last activity time
 
+        # Initialize activity time for stale connection detection
+        import time
+
+        self._last_activity_time = time.time()
+
         self.handlers = {
             "mining.subscribe": self.handle_subscribe,
             "mining.authorize": self.handle_authorize,
@@ -474,6 +479,42 @@ class StratumSession(RPCSession):
             # Store whether this is a witness (bech32) or legacy (base58) address
             self._state.is_witness_address = address.startswith(("kc1", "tkc1"))
 
+        # Check for existing session with same worker name
+        # Only remove if the previous session appears to be stale (no recent activity)
+        existing_sessions = [
+            s
+            for s in self._state.all_sessions
+            if getattr(s, "_worker_name", None) == username
+        ]
+        for stale_session in existing_sessions:
+            # Check if this session has been active recently (last 30 seconds)
+            last_activity = getattr(stale_session, "_last_activity_time", 0)
+            current_time = time.time()
+            time_since_activity = current_time - last_activity
+
+            if time_since_activity > 30:
+                # Session appears stale (no activity for >30s), remove it
+                self.logger.warning(
+                    "Removing stale session for worker %s (no activity for %.1f seconds, new connection detected)",
+                    username,
+                    time_since_activity,
+                )
+                self._state.all_sessions.discard(stale_session)
+                self._state.new_sessions.discard(stale_session)
+                # Try to clean up the stale session's hashrate tracking
+                try:
+                    wid = getattr(stale_session, "_worker_id", None)
+                    if wid:
+                        hashrate_tracker.remove_worker(wid)
+                except Exception:
+                    pass
+            else:
+                # Session is still active, log that we have multiple connections
+                self.logger.info(
+                    "Multiple connections detected for worker %s (multi-PC mining) - hashrate will be combined",
+                    username,
+                )
+
         # Register this session now
         self._state.all_sessions.add(self)
         self._state.new_sessions.discard(self)
@@ -601,6 +642,11 @@ class StratumSession(RPCSession):
         - ntime (or ntime_hex): Block time hex string
         - nonce (or nonce_hex): Nonce hex string
         """
+        # Update activity timestamp to detect stale connections
+        import time
+
+        self._last_activity_time = time.time()
+
         # Parse parameters flexibly to handle different mining software
         worker = None
         job_id = None
