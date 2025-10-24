@@ -113,9 +113,13 @@ h1 {
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  grid-template-columns: repeat(4, 1fr);
   gap: 22px;
   margin: 0 0 28px;
+}
+
+#daemon-status-content .stats-grid {
+  grid-template-columns: repeat(2, 1fr);
 }
 .stat-card {
   background: var(--card);
@@ -318,6 +322,8 @@ tr:hover {
 
 /* Themed network and block cards */
 .kcn-network-card,
+.kcn-earnings-card,
+.kcn-price-card,
 .kcn-blocks-card {
   border-left: 4px solid var(--badge-kcn);
   background: linear-gradient(
@@ -329,6 +335,8 @@ tr:hover {
 }
 
 .lcn-network-card,
+.lcn-earnings-card,
+.lcn-price-card,
 .lcn-blocks-card {
   border-left: 4px solid var(--badge-lcn);
   background: linear-gradient(

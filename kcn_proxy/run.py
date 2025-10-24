@@ -127,6 +127,24 @@ def run_with_settings(settings: Settings):
 
             asyncio.create_task(periodic_snapshots())
 
+        else:
+            logger.debug("Database disabled - snapshots and cleanup skipped")
+
+        # Start periodic price updates (runs regardless of database status)
+        async def periodic_price_updates():
+            from .utils.price_tracker import get_price_tracker
+
+            while True:
+                try:
+                    await asyncio.sleep(60 * 60)  # Update every 1 hour
+                    price_tracker = get_price_tracker()
+                    prices = await price_tracker.get_current_prices()
+                    logger.debug(f"Price update: KCN=${prices.get('kcn_price_usd')}")
+                except Exception as e:
+                    logger.debug(f"Periodic price update failed: {e}")
+
+        asyncio.create_task(periodic_price_updates())
+
         # Start web dashboard if enabled
         dashboard_task = None
         if settings.enable_dashboard:

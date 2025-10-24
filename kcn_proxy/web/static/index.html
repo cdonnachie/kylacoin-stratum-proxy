@@ -90,6 +90,58 @@
         </div>
 
         <div
+          class="stat-card"
+          title="Accepted vs total submitted shares over last 24h"
+        >
+          <h3>Acceptance Rate</h3>
+          <div class="value" id="acceptance-rate">—</div>
+          <div class="unit">%</div>
+        </div>
+
+        <div
+          class="stat-card"
+          title="Estimated time to find a block based on current EMA hashrate and network difficulty (statistical average)"
+        >
+          <h3>Time To Find</h3>
+          <div
+            style="
+              display: flex;
+              flex-direction: column;
+              gap: 8px;
+              margin-top: 8px;
+            "
+          >
+            <div style="display: flex; align-items: baseline; gap: 8px">
+              <img
+                src="/static/kylacoin-logo.png"
+                alt="KCN"
+                class="chain-logo"
+                style="width: 16px; height: 16px; vertical-align: middle"
+                onerror="this.style.display='none'"
+              />
+              <span style="font-size: 0.7em; opacity: 0.7; min-width: 35px"
+                >KCN:</span
+              >
+              <span id="ttf-kcn" class="value" style="font-size: 1.4em">—</span>
+            </div>
+            <div style="display: flex; align-items: baseline; gap: 8px">
+              <img
+                src="/static/lyncoin-logo.png"
+                alt="LCN"
+                class="chain-logo"
+                style="width: 16px; height: 16px; vertical-align: middle"
+                onerror="this.style.display='none'"
+              />
+              <span style="font-size: 0.7em; opacity: 0.7; min-width: 35px"
+                >LCN:</span
+              >
+              <span id="ttf-lcn" class="value" style="font-size: 1.4em">—</span>
+            </div>
+          </div>
+          <div class="subtext" style="margin-top: 8px">Statistical average</div>
+        </div>
+
+        <div
           class="stat-card kcn-blocks-card"
           title="Blocks found in the last 24h and all-time total (accepted only)"
         >
@@ -125,13 +177,138 @@
           <div class="subtext" id="lcn-blocks-alltime">All time: 0</div>
         </div>
 
+        <div class="stat-card">
+          <h3>Total Shares</h3>
+          <div class="value" id="total-shares">0</div>
+          <div class="unit">24h</div>
+        </div>
         <div
           class="stat-card"
-          title="Accepted vs total submitted shares over last 24h"
+          title="Shares submitted (accepted + rejected) since the last found block on either chain"
         >
-          <h3>Acceptance Rate</h3>
-          <div class="value" id="acceptance-rate">—</div>
-          <div class="unit">%</div>
+          <h3>Shares Since Block</h3>
+          <div class="value" id="shares-since-block">—</div>
+          <div class="unit" id="shares-since-block-age">—</div>
+        </div>
+
+        <div
+          class="stat-card kcn-earnings-card"
+          title="Estimated earnings based on current hashrate, difficulty, and KCN market price"
+          id="earnings-card"
+          style="display: none"
+        >
+          <h3>
+            <img
+              src="/static/kylacoin-logo.png"
+              alt="KCN"
+              class="chain-logo"
+              onerror="this.style.display='none'"
+            />
+            Est KCN Earnings
+          </h3>
+          <div class="value" id="earnings-daily-usd" style="font-size: 1.8em">
+            —
+          </div>
+          <div class="unit">Daily USD</div>
+          <div class="subtext" style="margin-top: 8px">
+            <span style="opacity: 0.7">Weekly:</span>
+            <span id="earnings-weekly-usd" style="font-weight: 600">—</span>
+          </div>
+          <div class="subtext" style="margin-top: 6px">
+            <span style="opacity: 0.7">KCN/day:</span>
+            <span id="earnings-kcn-coins" style="font-weight: 600">—</span>
+          </div>
+          <div class="subtext" style="margin-top: 6px; font-size: 0.65em">
+            Updated: <span id="earnings-timestamp">—</span>
+          </div>
+        </div>
+
+        <div
+          class="stat-card kcn-price-card"
+          title="Current KCN market price from CoinGecko"
+          id="price-card"
+          style="display: none"
+        >
+          <h3>
+            <img
+              src="/static/kylacoin-logo.png"
+              alt="KCN"
+              class="chain-logo"
+              onerror="this.style.display='none'"
+            />
+            KCN Price
+          </h3>
+          <div class="value" id="price-usd" style="font-size: 1.8em">—</div>
+          <div class="unit">USD</div>
+          <div class="subtext" style="margin-top: 8px">
+            <span style="opacity: 0.7">BTC:</span>
+            <span id="price-btc" style="font-weight: 600">—</span>
+          </div>
+          <div class="subtext" style="margin-top: 6px; font-size: 0.65em">
+            Updated: <span id="price-timestamp">—</span>
+          </div>
+        </div>
+
+        <div
+          class="stat-card lcn-earnings-card"
+          title="Estimated earnings based on current hashrate, difficulty, and LCN market price"
+          id="lcn-earnings-card"
+          style="display: none"
+        >
+          <h3>
+            <img
+              src="/static/lyncoin-logo.png"
+              alt="LCN"
+              class="chain-logo"
+              onerror="this.style.display='none'"
+            />
+            Est LCN Earnings
+          </h3>
+          <div
+            class="value"
+            id="lcn-earnings-daily-usd"
+            style="font-size: 1.8em"
+          >
+            —
+          </div>
+          <div class="unit">Daily USD</div>
+          <div class="subtext" style="margin-top: 8px">
+            <span style="opacity: 0.7">Weekly:</span>
+            <span id="lcn-earnings-weekly-usd" style="font-weight: 600">—</span>
+          </div>
+          <div class="subtext" style="margin-top: 6px">
+            <span style="opacity: 0.7">LCN/day:</span>
+            <span id="lcn-earnings-coins" style="font-weight: 600">—</span>
+          </div>
+          <div class="subtext" style="margin-top: 6px; font-size: 0.65em">
+            Updated: <span id="lcn-earnings-timestamp">—</span>
+          </div>
+        </div>
+
+        <div
+          class="stat-card lcn-price-card"
+          title="Current LCN market price from CoinGecko"
+          id="lcn-price-card"
+          style="display: none"
+        >
+          <h3>
+            <img
+              src="/static/lyncoin-logo.png"
+              alt="LCN"
+              class="chain-logo"
+              onerror="this.style.display='none'"
+            />
+            LCN Price
+          </h3>
+          <div class="value" id="lcn-price-usd" style="font-size: 1.8em">—</div>
+          <div class="unit">USD</div>
+          <div class="subtext" style="margin-top: 8px">
+            <span style="opacity: 0.7">BTC:</span>
+            <span id="lcn-price-btc" style="font-weight: 600">—</span>
+          </div>
+          <div class="subtext" style="margin-top: 6px; font-size: 0.65em">
+            Updated: <span id="lcn-price-timestamp">—</span>
+          </div>
         </div>
 
         <div
@@ -174,62 +351,6 @@
             <span style="opacity: 0.7">Difficulty:</span>
             <span id="lcn-difficulty" style="font-weight: 600">—</span>
           </div>
-        </div>
-
-        <div class="stat-card">
-          <h3>Total Shares</h3>
-          <div class="value" id="total-shares">0</div>
-          <div class="unit">24h</div>
-        </div>
-        <div
-          class="stat-card"
-          title="Shares submitted (accepted + rejected) since the last found block on either chain"
-        >
-          <h3>Shares Since Block</h3>
-          <div class="value" id="shares-since-block">—</div>
-          <div class="unit" id="shares-since-block-age">—</div>
-        </div>
-        <div
-          class="stat-card"
-          title="Estimated time to find a block based on current EMA hashrate and network difficulty (statistical average)"
-        >
-          <h3>Time To Find</h3>
-          <div
-            style="
-              display: flex;
-              flex-direction: column;
-              gap: 8px;
-              margin-top: 8px;
-            "
-          >
-            <div style="display: flex; align-items: baseline; gap: 8px">
-              <img
-                src="/static/kylacoin-logo.png"
-                alt="KCN"
-                class="chain-logo"
-                style="width: 16px; height: 16px; vertical-align: middle"
-                onerror="this.style.display='none'"
-              />
-              <span style="font-size: 0.7em; opacity: 0.7; min-width: 35px"
-                >KCN:</span
-              >
-              <span id="ttf-kcn" class="value" style="font-size: 1.4em">—</span>
-            </div>
-            <div style="display: flex; align-items: baseline; gap: 8px">
-              <img
-                src="/static/lyncoin-logo.png"
-                alt="LCN"
-                class="chain-logo"
-                style="width: 16px; height: 16px; vertical-align: middle"
-                onerror="this.style.display='none'"
-              />
-              <span style="font-size: 0.7em; opacity: 0.7; min-width: 35px"
-                >LCN:</span
-              >
-              <span id="ttf-lcn" class="value" style="font-size: 1.4em">—</span>
-            </div>
-          </div>
-          <div class="subtext" style="margin-top: 8px">Statistical average</div>
         </div>
       </div>
 
@@ -2189,12 +2310,187 @@
         }, 3000);
       }
 
+      async function updateEarnings() {
+        try {
+          const response = await fetch("/api/earnings");
+          const data = await response.json();
+
+          if (data.status === "error") {
+            console.debug("Earnings not available:", data.message);
+            return;
+          }
+
+          // Show earnings card
+          const earningsCard = document.getElementById("earnings-card");
+          if (earningsCard) {
+            earningsCard.style.display = "block";
+          }
+
+          // Format currency
+          const formatUSD = (val) => {
+            if (val === null || val === undefined || isNaN(val) || val === 0) return "—";
+            if (val >= 1) {
+              return `$${val.toFixed(2)}`;
+            } else if (val >= 0.01) {
+              return `$${val.toFixed(4)}`;
+            } else if (val >= 0.0001) {
+              return `$${val.toFixed(6)}`;
+            } else if (val > 0) {
+              return `$${val.toFixed(10)}`;
+            } else {
+              return "—";
+            }
+          };
+
+          const formatCoins = (val) => {
+            if (val === null || val === undefined || isNaN(val)) return "—";
+            return val.toFixed(8);
+          };
+
+          // Update daily earnings (only if we have a value, preserve last known value)
+          const dailyUSD = data.total_usd_per_day;
+          if (dailyUSD !== null && dailyUSD !== undefined) {
+            document.getElementById("earnings-daily-usd").textContent =
+              formatUSD(dailyUSD);
+          }
+
+          // Update weekly earnings (only if we have a value, preserve last known value)
+          const weeklyUSD = data.total_usd_per_week;
+          if (weeklyUSD !== null && weeklyUSD !== undefined) {
+            document.getElementById("earnings-weekly-usd").textContent =
+              formatUSD(weeklyUSD);
+          }
+
+          // Update coin amounts (only if we have a value)
+          if (
+            data.kcn_coins_per_day !== null &&
+            data.kcn_coins_per_day !== undefined
+          ) {
+            document.getElementById("earnings-kcn-coins").textContent =
+              formatCoins(data.kcn_coins_per_day);
+          }
+
+          // Update price card if prices are available
+          if (data.prices?.kcn_price_usd || data.prices?.kcn_price) {
+            const priceCard = document.getElementById("price-card");
+            if (priceCard) {
+              priceCard.style.display = "block";
+            }
+
+            const priceUSD = data.prices.kcn_price_usd;
+            if (priceUSD !== null && priceUSD !== undefined) {
+              document.getElementById("price-usd").textContent =
+                formatUSD(priceUSD);
+            }
+
+            const priceBTC = data.prices.kcn_price_btc;
+            if (
+              priceBTC !== null &&
+              priceBTC !== undefined &&
+              !isNaN(priceBTC)
+            ) {
+              const btcFormatter = (val) => {
+                if (val === null || val === undefined || isNaN(val)) return "—";
+                return parseFloat(val).toFixed(8);
+              };
+              document.getElementById("price-btc").textContent =
+                btcFormatter(priceBTC);
+            }
+
+            if (data.prices?.price_timestamp) {
+              const date = new Date(data.prices.price_timestamp * 1000);
+              document.getElementById("price-timestamp").textContent =
+                date.toLocaleTimeString();
+            }
+          }
+
+          // Update timestamp
+          if (data.prices?.price_timestamp) {
+            const date = new Date(data.prices.price_timestamp * 1000);
+            document.getElementById("earnings-timestamp").textContent =
+              date.toLocaleTimeString();
+          }
+
+          // Update LCN earnings card if LCN price is available
+          if (data.prices?.lcn_price_usd || data.prices?.lcn_price) {
+            const lcnEarningsCard =
+              document.getElementById("lcn-earnings-card");
+            if (lcnEarningsCard) {
+              lcnEarningsCard.style.display = "block";
+            }
+
+            const lcnDailyUSD = data.lcn_usd_per_day;
+            if (lcnDailyUSD !== null && lcnDailyUSD !== undefined) {
+              document.getElementById("lcn-earnings-daily-usd").textContent =
+                formatUSD(lcnDailyUSD);
+            }
+
+            const lcnWeeklyUSD = data.lcn_usd_per_week;
+            if (lcnWeeklyUSD !== null && lcnWeeklyUSD !== undefined) {
+              document.getElementById("lcn-earnings-weekly-usd").textContent =
+                formatUSD(lcnWeeklyUSD);
+            }
+
+            if (
+              data.lcn_coins_per_day !== null &&
+              data.lcn_coins_per_day !== undefined
+            ) {
+              document.getElementById("lcn-earnings-coins").textContent =
+                formatCoins(data.lcn_coins_per_day);
+            }
+
+            if (data.prices?.price_timestamp) {
+              const date = new Date(data.prices.price_timestamp * 1000);
+              document.getElementById("lcn-earnings-timestamp").textContent =
+                date.toLocaleTimeString();
+            }
+          }
+
+          // Update LCN price card if price is available
+          if (data.prices?.lcn_price_usd || data.prices?.lcn_price) {
+            const lcnPriceCard = document.getElementById("lcn-price-card");
+            if (lcnPriceCard) {
+              lcnPriceCard.style.display = "block";
+            }
+
+            const lcnPriceUSD = data.prices.lcn_price_usd;
+            if (lcnPriceUSD !== null && lcnPriceUSD !== undefined) {
+              document.getElementById("lcn-price-usd").textContent =
+                formatUSD(lcnPriceUSD);
+            }
+
+            const lcnPriceBTC = data.prices.lcn_price_btc;
+            if (
+              lcnPriceBTC !== null &&
+              lcnPriceBTC !== undefined &&
+              !isNaN(lcnPriceBTC)
+            ) {
+              const btcFormatter = (val) => {
+                if (val === null || val === undefined || isNaN(val)) return "—";
+                return parseFloat(val).toFixed(8);
+              };
+              document.getElementById("lcn-price-btc").textContent =
+                btcFormatter(lcnPriceBTC);
+            }
+
+            if (data.prices?.price_timestamp) {
+              const date = new Date(data.prices.price_timestamp * 1000);
+              document.getElementById("lcn-price-timestamp").textContent =
+                date.toLocaleTimeString();
+            }
+          }
+        } catch (error) {
+          console.debug("Error fetching earnings data:", error);
+        }
+      }
+
       function updateAll() {
         updateMiners();
         updateStats();
         updateBlocks();
         updateBestShares();
         updatePayouts();
+        updateEarnings(); // Update earnings estimates
         updateDaemonStatus(); // Add daemon status updates
         updateDisconnectedMiners(); // Update disconnected miners list
         document.getElementById("last-update").textContent =

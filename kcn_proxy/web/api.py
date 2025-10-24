@@ -1015,3 +1015,144 @@ async def clear_miner_record(worker_name: str):
     except Exception as e:
         logger.error(f"Error deleting miner record {worker_name}: {e}")
         return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
+
+
+@app.get("/api/earnings")
+async def get_earnings_estimate():
+    """Get estimated daily/weekly earnings based on current hashrate and difficulty"""
+    try:
+        from ..utils.earnings import EarningsCalculator
+        from ..utils.price_tracker import get_price_tracker
+        from ..consensus.targets import target_to_diff1
+        from ..config import Settings
+        import aiohttp
+
+        if not state:
+            return JSONResponse(
+                {"status": "error", "message": "State not initialized"},
+                status_code=500,
+            )
+
+        # Get current prices
+        price_tracker = get_price_tracker()
+        prices = await price_tracker.get_current_prices()
+
+        # Calculate total hashrate from all connected miners
+        total_hashrate_hs = 0.0
+        from ..stratum.session import hashrate_tracker
+
+        for session in state.all_sessions:
+            worker = getattr(session, "_worker_name", "Unknown")
+            hashrate_display = hashrate_tracker.get_hashrate_display(worker)
+            ema_hs = float(hashrate_display.get("ema", 0.0))
+            total_hashrate_hs += ema_hs
+
+        # Get KCN difficulty from target or RPC
+        kcn_difficulty = 0.0
+        if state.kcn_original_target:
+            try:
+                kcn_target_int = int(state.kcn_original_target, 16)
+                kcn_difficulty = target_to_diff1(kcn_target_int)
+            except Exception as e:
+                logger.debug(f"Failed to compute KCN difficulty from target: {e}")
+
+        if kcn_difficulty == 0.0:
+            try:
+                settings = Settings()
+                async with aiohttp.ClientSession() as session:
+                    payload = {
+                        "jsonrpc": "1.0",
+                        "id": "get_difficulty",
+                        "method": "getblockchaininfo",
+                        "params": [],
+                    }
+                    kcn_url = f"http://{settings.rpcuser}:{settings.rpcpass}@{settings.rpcip}:{settings.rpcport}"
+                    async with session.post(
+                        kcn_url,
+                        json=payload,
+                        timeout=aiohttp.ClientTimeout(total=2),
+                    ) as resp:
+                        if resp.status == 200:
+                            data = await resp.json()
+                            if "result" in data and data["result"]:
+                                kcn_difficulty = float(
+                                    data["result"].get("difficulty", 0)
+                                )
+            except Exception as e:
+                logger.debug(f"Could not fetch KCN difficulty from daemon: {e}")
+
+        # Get LCN difficulty from aux target
+        lcn_difficulty = 0.0
+        if state.aux_job and getattr(state.aux_job, "target", None):
+            try:
+                lcn_target_int = int(state.aux_job.target, 16)
+                lcn_difficulty = target_to_diff1(lcn_target_int)
+            except Exception as e:
+                logger.debug(f"Failed to compute LCN difficulty from target: {e}")
+
+        # Ensure minimum difficulty of 1.0 to avoid division by zero
+        # But only enforce this if difficulty is somehow zero/invalid
+        if kcn_difficulty <= 0:
+            kcn_difficulty = 1.0
+        if lcn_difficulty <= 0:
+            lcn_difficulty = 1.0
+
+        # Get block rewards from daemon (via getblocktemplate)
+        # KCN uses 12 decimal places, LCN uses 8 (like Bitcoin)
+        # Block rewards are cached with 1-hour TTL to avoid excessive RPC calls
+        price_tracker = get_price_tracker()
+        block_rewards = await price_tracker.get_block_rewards()
+        kcn_block_reward = block_rewards.get("kcn_block_reward", 1.0)
+        lcn_block_reward = block_rewards.get("lcn_block_reward", 1.0)
+
+        # Log calculation inputs
+        logger.debug(
+            f"Earnings calculation: hashrate={total_hashrate_hs}H/s, "
+            f"kcn_diff={kcn_difficulty}, lcn_diff={lcn_difficulty}, "
+            f"kcn_reward={kcn_block_reward}, lcn_reward={lcn_block_reward}, "
+            f"kcn_price=${prices.get('kcn_price_usd')}, lcn_price=${prices.get('lcn_price_usd')}"
+        )
+
+        # Calculate earnings with actual block rewards
+        earnings = EarningsCalculator.calculate_daily_earnings(
+            hashrate_hs=total_hashrate_hs,
+            kcn_difficulty=kcn_difficulty,
+            lcn_difficulty=lcn_difficulty,
+            kcn_price_btc=prices.get("kcn_price"),
+            kcn_price_usd=prices.get("kcn_price_usd"),
+            lcn_price_btc=prices.get("lcn_price"),
+            lcn_price_usd=prices.get("lcn_price_usd"),
+            kcn_block_reward=kcn_block_reward,
+            lcn_block_reward=lcn_block_reward,
+        )
+
+        # Log results
+        logger.debug(
+            f"Earnings result: lcn_coins_per_day={earnings.get('lcn_coins_per_day')}, "
+            f"lcn_usd_per_day={earnings.get('lcn_usd_per_day')}, "
+            f"kcn_coins_per_day={earnings.get('kcn_coins_per_day')}, "
+            f"kcn_usd_per_day={earnings.get('kcn_usd_per_day')}"
+        )
+
+        # Add price information and current metrics
+        earnings["prices"] = {
+            "kcn_price_btc": prices.get("kcn_price"),
+            "kcn_price_usd": prices.get("kcn_price_usd"),
+            "lcn_price_btc": prices.get("lcn_price"),
+            "lcn_price_usd": prices.get("lcn_price_usd"),
+            "price_timestamp": prices.get("timestamp"),
+        }
+        earnings["current_metrics"] = {
+            "total_hashrate_hs": round(total_hashrate_hs, 2),
+            "kcn_difficulty": kcn_difficulty,
+            "lcn_difficulty": lcn_difficulty,
+        }
+
+        return JSONResponse(earnings)
+
+    except Exception as e:
+        logger.error(f"Error calculating earnings: {e}", exc_info=True)
+        return JSONResponse(
+            {"status": "error", "message": str(e)},
+            status_code=500,
+        )
