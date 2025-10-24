@@ -2328,7 +2328,8 @@
 
           // Format currency
           const formatUSD = (val) => {
-            if (val === null || val === undefined || isNaN(val) || val === 0) return "—";
+            if (val === null || val === undefined || isNaN(val) || val === 0)
+              return "—";
             if (val >= 1) {
               return `$${val.toFixed(2)}`;
             } else if (val >= 0.01) {
