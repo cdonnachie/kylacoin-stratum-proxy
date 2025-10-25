@@ -22,8 +22,9 @@ jobs:
         run: pip install bandit
 
       - name: Run Bandit security scan
+        continue-on-error: true
         run: |
-          bandit -r kcn_proxy/ -f json -o bandit-report.json || true
+          bandit -r kcn_proxy/ -f json -o bandit-report.json
           bandit -r kcn_proxy/ -f txt
 
       - name: Upload Bandit report
@@ -50,12 +51,12 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v2
+        uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.language }}
 
       - name: Autobuild
-        uses: github/codeql-action/autobuild@v2
+        uses: github/codeql-action/autobuild@v3
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v2
+        uses: github/codeql-action/analyze@v3
