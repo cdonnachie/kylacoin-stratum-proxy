@@ -249,14 +249,19 @@ async def get_blocks(limit: int = 100, offset: int = 0):
 
 
 @app.get("/api/blocks/{chain}")
-async def get_chain_blocks(chain: str, limit: int = 10):
-    """Get recent blocks for a specific chain (KCN or LCN) with in-memory fallback"""
+async def get_chain_blocks(chain: str, limit: int = 10, offset: int = 0):
+    """Get recent blocks for a specific chain (KCN or LCN) with pagination"""
     try:
         from ..db.schema import get_blocks_by_chain
 
-        blocks = await get_blocks_by_chain(chain.upper(), limit)
+        result = await get_blocks_by_chain(chain.upper(), limit, offset)
         return JSONResponse(
-            {"blocks": blocks, "chain": chain.upper(), "source": "database"}
+            {
+                "blocks": result["blocks"],
+                "total": result["total"],
+                "chain": chain.upper(),
+                "source": "database",
+            }
         )
     except Exception as e:
         # Fallback to in-memory tracker when database unavailable
@@ -266,9 +271,14 @@ async def get_chain_blocks(chain: str, limit: int = 10):
         from .block_tracker import get_block_tracker
 
         tracker = get_block_tracker()
-        blocks = tracker.get_blocks_by_chain(chain.upper(), limit)
+        result = tracker.get_blocks_by_chain(chain.upper(), limit, offset)
         return JSONResponse(
-            {"blocks": blocks, "chain": chain.upper(), "source": "memory"}
+            {
+                "blocks": result["blocks"],
+                "total": result["total"],
+                "chain": chain.upper(),
+                "source": "memory",
+            }
         )
 
 

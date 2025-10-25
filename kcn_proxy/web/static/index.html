@@ -313,7 +313,7 @@
 
         <div
           class="stat-card kcn-network-card"
-          title="Current KCN blockchain height and network difficulty"
+          title="Current KCN blockchain height"
         >
           <h3>
             <img
@@ -326,15 +326,30 @@
           </h3>
           <div class="value" id="kcn-height" style="font-size: 1.8em">—</div>
           <div class="unit">Block Height</div>
-          <div class="subtext" style="margin-top: 8px">
-            <span style="opacity: 0.7">Difficulty:</span>
-            <span id="kcn-difficulty" style="font-weight: 600">—</span>
+        </div>
+
+        <div
+          class="stat-card kcn-difficulty-card"
+          title="Current KCN network target difficulty"
+        >
+          <h3>
+            <img
+              src="/static/kylacoin-logo.png"
+              alt="KCN"
+              class="chain-logo"
+              onerror="this.style.display='none'"
+            />
+            KCN Difficulty
+          </h3>
+          <div class="value" id="kcn-difficulty" style="font-size: 1.8em">
+            —
           </div>
+          <div class="unit">Target Difficulty</div>
         </div>
 
         <div
           class="stat-card lcn-network-card"
-          title="Current LCN blockchain height and network difficulty"
+          title="Current LCN blockchain height"
         >
           <h3>
             <img
@@ -347,10 +362,25 @@
           </h3>
           <div class="value" id="lcn-height" style="font-size: 1.8em">—</div>
           <div class="unit">Block Height</div>
-          <div class="subtext" style="margin-top: 8px">
-            <span style="opacity: 0.7">Difficulty:</span>
-            <span id="lcn-difficulty" style="font-weight: 600">—</span>
+        </div>
+
+        <div
+          class="stat-card lcn-difficulty-card"
+          title="Current LCN network target difficulty"
+        >
+          <h3>
+            <img
+              src="/static/lyncoin-logo.png"
+              alt="LCN"
+              class="chain-logo"
+              onerror="this.style.display='none'"
+            />
+            LCN Difficulty
+          </h3>
+          <div class="value" id="lcn-difficulty" style="font-size: 1.8em">
+            —
           </div>
+          <div class="unit">Target Difficulty</div>
         </div>
       </div>
 
@@ -1567,7 +1597,7 @@
               .map((miner) => {
                 const diffCell =
                   miner.assigned_difficulty != null
-                    ? miner.assigned_difficulty.toFixed(10)
+                    ? miner.assigned_difficulty.toFixed(8)
                     : "—";
                 const hashrateTooltip = [
                   `Assigned diff: ${miner.assigned_difficulty ?? "n/a"}`,
@@ -1774,7 +1804,7 @@
               lHeightEl.title = `LCN blockchain height: ${lHeight}`;
             }
             if (lDiffEl && lDiff != null) {
-              lDiffEl.textContent = lDiff.toFixed(6);
+              lDiffEl.textContent = lDiff.toFixed(8);
               lDiffEl.title = `LCN network difficulty: ${lDiff}`;
             }
           } catch (e) {
@@ -1827,8 +1857,8 @@
 
       // Pagination state for blocks with localStorage persistence
       const blocksPaginationState = {
-        kcn: { all: [], page: 1, perPage: 10, total: 0, lastSeenTotal: 0 },
-        lcn: { all: [], page: 1, perPage: 10, total: 0, lastSeenTotal: 0 },
+        kcn: { all: [], page: 1, perPage: 5, total: 0, lastSeenTotal: 0 },
+        lcn: { all: [], page: 1, perPage: 5, total: 0, lastSeenTotal: 0 },
       };
 
       // Load saved pagination state from localStorage
@@ -1865,28 +1895,23 @@
           // Calculate offset based on current page
           const kcnPage = blocksPaginationState.kcn.page;
           const lcnPage = blocksPaginationState.lcn.page;
-          const perPage = 10;
-
-          // Fetch KCN blocks for current page
+          const perPage = 5;
           const kcnOffset = (kcnPage - 1) * perPage;
+          const lcnOffset = (lcnPage - 1) * perPage;
+
+          // Fetch KCN blocks for current page (chain-specific endpoint with offset)
           const kcnResponse = await fetch(
-            `/api/blocks?limit=${perPage}&offset=${kcnOffset}`
+            `/api/blocks/kcn?limit=${perPage}&offset=${kcnOffset}`
           );
           const kcnData = await kcnResponse.json();
+          const kcnBlocks = kcnData.blocks;
 
-          const kcnBlocks = kcnData.blocks.filter((b) => b.chain === "KCN");
-          const allKcnTotal = kcnData.blocks.filter(
-            (b) => b.chain === "KCN"
-          ).length;
-
-          // Fetch LCN blocks for current page
-          const lcnOffset = (lcnPage - 1) * perPage;
+          // Fetch LCN blocks for current page (chain-specific endpoint with offset)
           const lcnResponse = await fetch(
-            `/api/blocks?limit=${perPage}&offset=${lcnOffset}`
+            `/api/blocks/lcn?limit=${perPage}&offset=${lcnOffset}`
           );
           const lcnData = await lcnResponse.json();
-
-          const lcnBlocks = lcnData.blocks.filter((b) => b.chain === "LCN");
+          const lcnBlocks = lcnData.blocks;
 
           // Check for new KCN blocks
           if (
@@ -1921,8 +1946,8 @@
           blocksPaginationState.kcn.total = kcnData.total;
           blocksPaginationState.kcn.lastSeenTotal = kcnData.total;
           blocksPaginationState.lcn.all = lcnBlocks;
-          blocksPaginationState.lcn.total = kcnData.total;
-          blocksPaginationState.lcn.lastSeenTotal = kcnData.total;
+          blocksPaginationState.lcn.total = lcnData.total;
+          blocksPaginationState.lcn.lastSeenTotal = lcnData.total;
 
           // Render current pages
           renderBlocksPage("kcn");
@@ -1946,7 +1971,7 @@
         const totalCount = state.total;
 
         // Calculate total pages from server-reported total
-        const perPage = 10;
+        const perPage = 5;
         const totalPages = Math.ceil(totalCount / perPage);
 
         function renderBlockRow(block) {
@@ -2017,7 +2042,7 @@
 
       function nextBlocksPage(chain) {
         const state = blocksPaginationState[chain];
-        const perPage = 10;
+        const perPage = 5;
         const totalPages = Math.ceil(state.total / perPage);
         if (state.page < totalPages) {
           state.page++;
@@ -2030,18 +2055,17 @@
       async function updateBlocksForChain(chain) {
         try {
           const state = blocksPaginationState[chain];
-          const perPage = 10;
+          const perPage = 5;
           const offset = (state.page - 1) * perPage;
 
+          // Fetch chain-specific blocks for current page with server-side pagination
           const response = await fetch(
-            `/api/blocks?limit=${perPage}&offset=${offset}`
+            `/api/blocks/${chain}?limit=${perPage}&offset=${offset}`
           );
           const data = await response.json();
 
-          const chainBlocks = data.blocks.filter(
-            (b) => b.chain === chain.toUpperCase()
-          );
-          state.all = chainBlocks;
+          // Store blocks and update total from API response
+          state.all = data.blocks;
           state.total = data.total;
 
           renderBlocksPage(chain);
@@ -2885,7 +2909,7 @@
                         label += ": ";
                       }
                       if (context.parsed.y !== null) {
-                        label += context.parsed.y.toFixed(6);
+                        label += context.parsed.y.toFixed(8);
                       }
                       return label;
                     },

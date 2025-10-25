@@ -60,16 +60,19 @@ class InMemoryBlockTracker:
             elif chain.upper() == "LCN":
                 self.blocks_lcn.appendleft(block_data)
 
-    def get_blocks_by_chain(self, chain: str, limit: int = 10) -> List[Dict[str, Any]]:
+    def get_blocks_by_chain(
+        self, chain: str, limit: int = 10, offset: int = 0
+    ) -> Dict[str, Any]:
         """
-        Get recent blocks for a specific chain.
+        Get recent blocks for a specific chain with pagination.
 
         Args:
             chain: Chain name (KCN or LCN)
             limit: Maximum number of blocks to return
+            offset: Number of blocks to skip
 
         Returns:
-            List of block dictionaries, sorted newest first
+            Dictionary with 'blocks' list and 'total' count, sorted newest first
         """
         with self.lock:
             if chain.upper() == "KCN":
@@ -77,9 +80,10 @@ class InMemoryBlockTracker:
             elif chain.upper() == "LCN":
                 blocks = list(self.blocks_lcn)
             else:
-                return []
+                return {"blocks": [], "total": 0}
 
-        return blocks[:limit]
+        total = len(blocks)
+        return {"blocks": blocks[offset : offset + limit], "total": total}
 
     def get_all_blocks(self, limit: int = 100, offset: int = 0) -> Dict[str, Any]:
         """

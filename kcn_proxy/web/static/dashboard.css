@@ -322,6 +322,7 @@ tr:hover {
 
 /* Themed network and block cards */
 .kcn-network-card,
+.kcn-difficulty-card,
 .kcn-earnings-card,
 .kcn-price-card,
 .kcn-blocks-card {
@@ -335,6 +336,7 @@ tr:hover {
 }
 
 .lcn-network-card,
+.lcn-difficulty-card,
 .lcn-earnings-card,
 .lcn-price-card,
 .lcn-blocks-card {
@@ -348,11 +350,17 @@ tr:hover {
 }
 
 .kcn-network-card h3,
+.kcn-difficulty-card h3,
+.kcn-earnings-card h3,
+.kcn-price-card h3,
 .kcn-blocks-card h3 {
   color: var(--badge-kcn-light);
 }
 
 .lcn-network-card h3,
+.lcn-difficulty-card h3,
+.lcn-earnings-card h3,
+.lcn-price-card h3,
 .lcn-blocks-card h3 {
   color: var(--badge-lcn);
 }
@@ -588,12 +596,16 @@ tbody tr td a.hash-link {
 
 @media (max-width: 1050px) {
   .stats-grid {
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  }
+  #daemon-status-content .stats-grid {
+    grid-template-columns: 1fr !important;
   }
   .stat-card .value {
     font-size: 2.1em;
   }
 }
+
 @media (max-width: 780px) {
   h1 {
     font-size: 1.9em;
@@ -604,7 +616,12 @@ tbody tr td a.hash-link {
   .stat-card {
     padding: 16px 18px;
   }
+  /* Stack daemon status cards to 1 column on tablets and large phones */
+  #daemon-status-content .stats-grid {
+    grid-template-columns: 1fr !important;
+  }
 }
+
 @media (max-width: 560px) {
   .stat-card .value {
     font-size: 1.75em;
@@ -633,7 +650,7 @@ tbody tr td a.hash-link {
   border-radius: 6px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--badge-lcn);
+  background: var(--badge-kcn-light);
 }
 
 /* Floating theme toggle */

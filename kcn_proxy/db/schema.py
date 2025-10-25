@@ -411,21 +411,31 @@ async def get_recent_blocks(limit: int = 50, offset: int = 0):
         }
 
 
-async def get_blocks_by_chain(chain: str, limit: int = 10):
-    """Get recent blocks for a specific chain"""
+async def get_blocks_by_chain(chain: str, limit: int = 10, offset: int = 0):
+    """Get recent blocks for a specific chain with pagination"""
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
+
+        # Get total count for this chain
+        count_cursor = await db.execute(
+            "SELECT COUNT(*) as total FROM blocks WHERE chain = ?",
+            (chain,),
+        )
+        count_row = await count_cursor.fetchone()
+        total = count_row["total"] if count_row else 0
+
+        # Get paginated results
         cursor = await db.execute(
             """
             SELECT * FROM blocks
             WHERE chain = ?
             ORDER BY timestamp DESC
-            LIMIT ?
+            LIMIT ? OFFSET ?
         """,
-            (chain, limit),
+            (chain, limit, offset),
         )
         rows = await cursor.fetchall()
-        return [dict(row) for row in rows]
+        return {"blocks": [dict(row) for row in rows], "total": total}
 
 
 async def get_stats_summary(hours: int = 24):
