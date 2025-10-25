@@ -476,7 +476,8 @@ async def get_vardiff_state():
     try:
         return JSONResponse({"enabled": True, **manager.export_state()})
     except Exception as e:
-        return JSONResponse({"enabled": True, "error": str(e)}, status_code=500)
+        logger.error("Error exporting vardiff state: %s", e, exc_info=True)
+        return JSONResponse({"enabled": True, "error": "Failed to retrieve state"}, status_code=500)
 
 
 @app.get("/favicon.ico")
@@ -534,8 +535,8 @@ async def clear_best_shares():
             }
         )
     except Exception as e:
-        logger.error(f"Error clearing best shares: {e}")
-        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
+        logger.error("Error clearing best shares: %s", e)
+        return JSONResponse({"status": "error", "message": "Failed to clear shares"}, status_code=500)
 
 
 @app.get("/api/lcn_hash_fix_status")
@@ -576,7 +577,8 @@ async def lcn_hash_fix_status():
             {"error": "Database not enabled", "show_button": False}, status_code=503
         )
     except Exception as e:
-        return JSONResponse({"error": str(e), "show_button": False}, status_code=500)
+        logger.error("Error checking LCN hash fix status: %s", e, exc_info=True)
+        return JSONResponse({"error": "Internal error", "show_button": False}, status_code=500)
 
 
 @app.post("/api/fix_lcn_aux_hashes")
@@ -651,7 +653,8 @@ async def fix_lcn_aux_hashes(limit: int | None = None, dry_run: bool = False):
             try:
                 rpc_hash = _rpc("getblockhash", [height]).lower()
             except Exception as e:
-                diffs.append((height, stored, f"RPC_ERROR:{e}"))
+                logger.debug("RPC error checking block %d: %s", height, e)
+                diffs.append((height, stored, f"RPC_ERROR"))
                 continue
             if stored != rpc_hash:
                 diffs.append((height, stored, rpc_hash))
@@ -731,7 +734,8 @@ async def get_share_stats(worker: str = None, minutes: int = 10):
     except ImportError:
         return JSONResponse({"error": "Database not enabled"}, status_code=503)
     except Exception as e:
-        return JSONResponse({"error": str(e)}, status_code=500)
+        logger.error("Error retrieving share stats: %s", e)
+        return JSONResponse({"error": "Failed to retrieve share statistics"}, status_code=500)
 
 
 @app.post("/api/cleanup")
@@ -748,7 +752,8 @@ async def manual_cleanup():
     except ImportError:
         return JSONResponse({"error": "Database not enabled"}, status_code=503)
     except Exception as e:
-        return JSONResponse({"error": str(e)}, status_code=500)
+        logger.error("Error during cleanup: %s", e)
+        return JSONResponse({"error": "Failed to complete cleanup"}, status_code=500)
 
 
 @app.get("/api/health")
@@ -1013,8 +1018,8 @@ async def clear_miner_record(worker_name: str):
         await delete_miner_session(worker_name)
         return JSONResponse({"status": "success", "worker_name": worker_name})
     except Exception as e:
-        logger.error(f"Error deleting miner record {worker_name}: {e}")
-        return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
+        logger.error("Error deleting miner record %s: %s", worker_name, e)
+        return JSONResponse({"status": "error", "message": "Failed to delete record"}, status_code=500)
 
 
 @app.get("/api/earnings")
@@ -1151,8 +1156,8 @@ async def get_earnings_estimate():
         return JSONResponse(earnings)
 
     except Exception as e:
-        logger.error(f"Error calculating earnings: {e}", exc_info=True)
+        logger.error("Error calculating earnings: %s", e, exc_info=True)
         return JSONResponse(
-            {"status": "error", "message": str(e)},
+            {"status": "error", "message": "Failed to calculate earnings"},
             status_code=500,
         )
