@@ -98,7 +98,6 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - SHOW_JOBS=${SHOW_JOBS:-false}
       - USE_EASIER_TARGET=${USE_EASIER_TARGET:-true}
-      - DEBUG_SHARES=${DEBUG_SHARES:-false}
       - SHARE_DIFFICULTY_DIVISOR=${SHARE_DIFFICULTY_DIVISOR:-1.0}
       - PROXY_SIGNATURE=${PROXY_SIGNATURE:-/kyla-stratum-proxy/}
       - ENABLE_ZMQ=${ENABLE_ZMQ:-true}

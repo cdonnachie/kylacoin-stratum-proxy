@@ -79,7 +79,6 @@ async def start_server(state, settings):
         settings.testnet,
         settings.node_url,
         settings.aux_url,
-        settings.debug_shares,
         settings.share_difficulty_divisor,
         notification_manager,
     )

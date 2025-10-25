@@ -273,7 +273,6 @@ class StratumSession(RPCSession):
         testnet: bool,
         node_url: str,
         aux_url: str | None,
-        debug_shares: bool,
         share_difficulty_divisor: float,
         notification_manager,
         transport,
@@ -284,7 +283,6 @@ class StratumSession(RPCSession):
 
         self._state = state
         self._testnet = testnet
-        self._debug_shares = debug_shares
         self._notification_manager = notification_manager
 
         # Validate and clamp share_difficulty_divisor
@@ -721,12 +719,6 @@ class StratumSession(RPCSession):
                 hashrate_tracker.add_share(worker, sent_diff, accepted=False)
             except Exception as e:
                 self.logger.debug("Failed to record rejected share: %s", e)
-            if self._debug_shares:
-                self.logger.error(
-                    "Low difficulty share: shareDiff=%.18f minerDiff=%.18f",
-                    share_diff,
-                    sent_diff,
-                )
             return False
 
         block_msg_parts = []
@@ -793,32 +785,22 @@ class StratumSession(RPCSession):
                     )
                 )
 
-        if self._debug_shares:
-            self.logger.debug(
-                "Share accepted: worker=%s, difficulty=%.6f, target=%.6f",
-                worker,
-                share_diff,
-                sent_diff,
-            )
+        # Always log accepted shares at INFO level
+        kcn_difficulty = target_to_diff1(kcn_target_int)
+        lcn_difficulty = (
+            target_to_diff1(lcn_target_int)
+            if state.aux_job and state.aux_job.target
+            else 0.0
+        )
 
-        # Always log accepted shares at INFO level (or blocks at any level)
-        if is_block or True:
-            # Convert targets to difficulty values for better readability
-            kcn_difficulty = target_to_diff1(kcn_target_int)
-            lcn_difficulty = (
-                target_to_diff1(lcn_target_int)
-                if state.aux_job and state.aux_job.target
-                else 0.0
-            )
-
-            self.logger.info(
-                "Share accepted by %s - shareDiff=%.8f%s KCN diff: %.8f LCN diff: %.8f",
-                worker,
-                share_diff,
-                block_msg,
-                kcn_difficulty,
-                lcn_difficulty,
-            )
+        self.logger.info(
+            "Share accepted by %s - shareDiff=%.8f%s KCN diff: %.8f LCN diff: %.8f",
+            worker,
+            share_diff,
+            block_msg,
+            kcn_difficulty,
+            lcn_difficulty,
+        )
 
         # Submit to appropriate blockchain(s)
         if is_kcn_block or is_lcn_block:

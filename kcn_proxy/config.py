@@ -26,7 +26,6 @@ class Settings:
     jobs: bool = False
     log_level: str = "INFO"
     verbose: bool = False  # Deprecated: use log_level instead
-    debug_shares: bool = False
     enable_zmq: bool = False
     kcn_zmq_endpoint: str = ""
     lcn_zmq_endpoint: str = ""
@@ -85,7 +84,6 @@ class Settings:
             self.verbose = os.getenv("VERBOSE", "false").lower() == "true"
             self.log_level = "DEBUG" if self.verbose else "INFO"
 
-        self.debug_shares = os.getenv("DEBUG_SHARES", "false").lower() == "true"
         # ZMQ Configuration - read at instance creation time
         self.enable_zmq = os.getenv("ENABLE_ZMQ", "true").lower() == "true"
         self.kcn_zmq_endpoint = os.getenv("KCN_ZMQ_ENDPOINT", "tcp://kylacoin:29332")

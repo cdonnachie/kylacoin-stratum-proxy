@@ -45,10 +45,6 @@ if [ "${USE_EASIER_TARGET,,}" = "true" ]; then
     ARGS+=("--use-easier-target")
 fi
 
-if [ "${DEBUG_SHARES,,}" = "true" ]; then
-    ARGS+=("--debug-shares")
-fi
-
 # ZMQ arguments
 if [ "${ENABLE_ZMQ,,}" = "true" ]; then
     ARGS+=("--enable-zmq")
