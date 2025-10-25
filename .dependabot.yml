@@ -1,0 +1,54 @@
+version: 2
+updates:
+  # Enable version updates for Python dependencies
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "03:00"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "cdonnachie"
+    labels:
+      - "dependencies"
+      - "security"
+    commit-message:
+      prefix: "chore(deps):"
+      include: "scope"
+    pull-request-branch-name:
+      separator: "/"
+
+  # Enable version updates for Docker images
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "03:00"
+    open-pull-requests-limit: 3
+    reviewers:
+      - "cdonnachie"
+    labels:
+      - "dependencies"
+      - "docker"
+    commit-message:
+      prefix: "chore(docker):"
+      include: "scope"
+
+  # Enable version updates for GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "03:30"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "cdonnachie"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "chore(ci):"
+      include: "scope"
