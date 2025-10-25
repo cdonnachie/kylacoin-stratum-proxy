@@ -21,6 +21,11 @@ def main():
     p.add_argument("-t", "--testnet", action="store_true")
     p.add_argument("-j", "--jobs", action="store_true")
     p.add_argument("-v", "--verbose", "--debug", action="store_true", dest="verbose")
+    p.add_argument(
+        "--log-level",
+        default=None,
+        help="Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)",
+    )
     p.add_argument("--debug-shares", action="store_true")
     # ZMQ options
     p.add_argument("--enable-zmq", action="store_true", help="Enable ZMQ notifications")

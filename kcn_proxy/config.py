@@ -24,7 +24,8 @@ class Settings:
     use_easier_target: bool = False
     testnet: bool = False
     jobs: bool = False
-    verbose: bool = False
+    log_level: str = "INFO"
+    verbose: bool = False  # Deprecated: use log_level instead
     debug_shares: bool = False
     enable_zmq: bool = False
     kcn_zmq_endpoint: str = ""
@@ -74,7 +75,16 @@ class Settings:
         )
         self.testnet = os.getenv("TESTNET", "false").lower() == "true"
         self.jobs = os.getenv("SHOW_JOBS", "false").lower() == "true"
-        self.verbose = os.getenv("VERBOSE", "false").lower() == "true"
+
+        # Log level configuration (LOG_LEVEL takes precedence over VERBOSE)
+        log_level_env = os.getenv("LOG_LEVEL", "").upper()
+        if log_level_env:
+            self.log_level = log_level_env
+        else:
+            # Fallback: check VERBOSE for backwards compatibility
+            self.verbose = os.getenv("VERBOSE", "false").lower() == "true"
+            self.log_level = "DEBUG" if self.verbose else "INFO"
+
         self.debug_shares = os.getenv("DEBUG_SHARES", "false").lower() == "true"
         # ZMQ Configuration - read at instance creation time
         self.enable_zmq = os.getenv("ENABLE_ZMQ", "true").lower() == "true"

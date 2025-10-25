@@ -12,13 +12,13 @@ async def start_server(state, settings):
     logger = logging.getLogger("Stratum-Proxy")
     # Early diagnostic for VarDiff configuration
     env_val = os.getenv("ENABLE_VARDIFF")
-    logger.info(
+    logger.debug(
         "VarDiff config: settings.enable_vardiff=%s (ENV ENABLE_VARDIFF=%r)",
         settings.enable_vardiff,
         env_val,
     )
     if not settings.enable_vardiff:
-        logger.info(
+        logger.debug(
             "VarDiff disabled. To enable set ENABLE_VARDIFF=true in your runtime environment (and restart)."
         )
     # Create notification manager
@@ -77,7 +77,6 @@ async def start_server(state, settings):
         StratumSession,
         state,
         settings.testnet,
-        settings.verbose,
         settings.node_url,
         settings.aux_url,
         settings.debug_shares,

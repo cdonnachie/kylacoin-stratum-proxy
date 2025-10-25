@@ -29,9 +29,9 @@ class NotificationManager:
             services.append("Telegram")
 
         if services:
-            logger.info("Notifications enabled: %s", ", ".join(services))
+            logger.debug("Notifications enabled: %s", ", ".join(services))
         else:
-            logger.info("No notification services configured")
+            logger.debug("No notification services configured")
 
     async def notify_block_found(
         self,

@@ -9,18 +9,18 @@ from .zmq.listener import DualZMQListener
 
 
 def run_with_settings(settings: Settings):
-    logger = setup_logging(settings.verbose)
+    logger = setup_logging(settings.log_level)
     mode = (
         "KCN+LCN AuxPoW" if (settings.aux_url and settings.aux_address) else "KCN only"
     )
-    logger.info("Mode: %s", mode)
+    logger.debug("Mode: %s", mode)
     if settings.aux_url and settings.aux_address:
-        logger.info("LCN address: %s", settings.aux_address)
+        logger.debug("LCN address: %s", settings.aux_address)
 
     # Log ZMQ configuration
     # Log ZMQ configuration
     if settings.enable_zmq:
-        logger.info(
+        logger.debug(
             "ZMQ enabled - KCN: %s, LCN: %s",
             settings.kcn_zmq_endpoint,
             settings.lcn_zmq_endpoint,
@@ -164,14 +164,14 @@ def run_with_settings(settings: Settings):
         async with ClientSession() as http:
             # ZMQ callbacks
             async def on_kcn_block(block_hash: str):
-                logger.info("ZMQ: New KCN block %s, updating template", block_hash)
+                logger.debug("ZMQ: New KCN block %s, updating template", block_hash)
                 try:
                     await update_once(state, settings, http, force_update=True)
                 except Exception as e:
                     logger.error("Failed to update template on KCN block: %s", e)
 
             async def on_lcn_block(block_hash: str):
-                logger.info("ZMQ: New LCN block %s, refreshing aux job", block_hash)
+                logger.debug("ZMQ: New LCN block %s, refreshing aux job", block_hash)
                 try:
                     from .consensus.auxpow import refresh_aux_job
 

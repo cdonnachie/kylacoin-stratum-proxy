@@ -271,7 +271,6 @@ class StratumSession(RPCSession):
         self,
         state: TemplateState,
         testnet: bool,
-        verbose: bool,
         node_url: str,
         aux_url: str | None,
         debug_shares: bool,
@@ -285,7 +284,6 @@ class StratumSession(RPCSession):
 
         self._state = state
         self._testnet = testnet
-        self._verbose = verbose
         self._debug_shares = debug_shares
         self._notification_manager = notification_manager
 
@@ -524,8 +522,7 @@ class StratumSession(RPCSession):
             loop = asyncio.get_event_loop()
             self._last_activity = loop.time()
             self._keepalive_task = asyncio.create_task(self._keepalive_loop())
-            if self._verbose:
-                self.logger.debug("Started keepalive task for %s", username)
+            self.logger.debug("Started keepalive task for %s", username)
 
         # If a job exists, send it right away
         job = self._state.current_job_params()
@@ -577,11 +574,10 @@ class StratumSession(RPCSession):
                             pass
                     await self.send_notification("mining.set_difficulty", (difficulty,))
                     self._last_activity = loop.time()
-                    if self._verbose:
-                        self.logger.debug(
-                            "Sent keepalive to %s",
-                            getattr(self, "_worker_id", "unknown"),
-                        )
+                    self.logger.debug(
+                        "Sent keepalive to %s",
+                        getattr(self, "_worker_id", "unknown"),
+                    )
 
             except asyncio.CancelledError:
                 break
@@ -805,7 +801,8 @@ class StratumSession(RPCSession):
                 sent_diff,
             )
 
-        if self._verbose or is_block:
+        # Always log accepted shares at INFO level (or blocks at any level)
+        if is_block or True:
             # Convert targets to difficulty values for better readability
             kcn_difficulty = target_to_diff1(kcn_target_int)
             lcn_difficulty = (
@@ -815,7 +812,7 @@ class StratumSession(RPCSession):
             )
 
             self.logger.info(
-                "Share accepted by %s - shareDiff=%.6f%s KCN diff: %.6f LCN diff: %.6f",
+                "Share accepted by %s - shareDiff=%.8f%s KCN diff: %.8f LCN diff: %.8f",
                 worker,
                 share_diff,
                 block_msg,

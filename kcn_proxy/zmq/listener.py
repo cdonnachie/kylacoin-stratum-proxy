@@ -54,7 +54,7 @@ class ZMQListener:
             # Connect to the blockchain node
             self.socket.connect(self.zmq_endpoint)
 
-            self.logger.info(
+            self.logger.debug(
                 f"Connected to {self.name} ZMQ endpoint: {self.zmq_endpoint}"
             )
             self._running = True
@@ -221,15 +221,15 @@ class DualZMQListener:
         tasks = []
 
         if self.kcn_listener:
-            self.logger.info("Starting KCN ZMQ listener...")
+            self.logger.debug("Starting KCN ZMQ listener...")
             tasks.append(asyncio.create_task(self.kcn_listener.start()))
 
         if self.lcn_listener:
-            self.logger.info("Starting LCN ZMQ listener...")
+            self.logger.debug("Starting LCN ZMQ listener...")
             tasks.append(asyncio.create_task(self.lcn_listener.start()))
 
         if tasks:
-            self.logger.info(f"Starting {len(tasks)} ZMQ listener(s)...")
+            self.logger.debug(f"Starting {len(tasks)} ZMQ listener(s)...")
             # Run both listeners concurrently, but handle exceptions independently
             results = await asyncio.gather(*tasks, return_exceptions=True)
 

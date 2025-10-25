@@ -23,6 +23,11 @@ if [ -n "${PROXY_SIGNATURE}" ]; then
     ARGS+=("--proxy-signature=${PROXY_SIGNATURE}")
 fi
 
+# Add log level if specified (takes precedence over VERBOSE)
+if [ -n "${LOG_LEVEL}" ]; then
+    ARGS+=("--log-level=${LOG_LEVEL}")
+fi
+
 # Add conditional flags only if they are explicitly set to "true"
 if [ "${TESTNET,,}" = "true" ]; then
     ARGS+=("--testnet")
