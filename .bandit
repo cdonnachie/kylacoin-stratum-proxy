@@ -4,14 +4,13 @@
 
 exclude_dirs = ['/tests', '/test', '/.venv', '/venv', '.git']
 tests = 
-skips = 
+skips = B104,B311
 
-[bandit-assert_used:B101]
-# Skip assert checks - we use asserts only for input validation in non-critical paths
-skips = 
-
-[bandit-hardcoded_bind_all_interfaces:B104]
+# Suppress B104 (hardcoded_bind_all_interfaces)
 # 0.0.0.0 is intentional for server services (stratum proxy, dashboard)
 # These are server-side network services, not client connections
 # Binding to all interfaces is the correct behavior for public-facing services
-skips = 
+#
+# Suppress B311 (blacklist_random)
+# Used only for backoff jitter timing, not cryptographic purposes
+# Safe for non-security use cases 

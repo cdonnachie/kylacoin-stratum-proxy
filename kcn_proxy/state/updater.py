@@ -171,7 +171,9 @@ async def update_once(state, settings, http: ClientSession, force_update: bool =
 
                         hashratedict.pop(wid, None)
                 except Exception as e:
-                    logger.debug("Failed to remove worker %s from hashrate tracker: %s", wid, e)
+                    logger.debug(
+                        "Failed to remove worker %s from hashrate tracker: %s", wid, e
+                    )
             else:
                 alive.add(sess)
         state.all_sessions = alive
