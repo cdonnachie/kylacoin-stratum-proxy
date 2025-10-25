@@ -2,7 +2,8 @@ from typing import Optional
 
 
 def var_int(i: int) -> bytes:
-    assert i >= 0
+    if i < 0:
+        raise ValueError(f"var_int requires non-negative integer, got {i}")
     if i < 0xFD:
         return i.to_bytes(1, "little")
     if i <= 0xFFFF:

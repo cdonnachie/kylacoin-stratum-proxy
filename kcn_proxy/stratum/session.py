@@ -394,8 +394,8 @@ class StratumSession(RPCSession):
             wid = getattr(self, "_worker_id", None)
             if wid:
                 hashrate_tracker.remove_worker(wid)
-        except Exception:
-            pass
+        except Exception as e:
+            self.logger.debug("Failed to remove worker from hashrate tracker: %s", e)
 
         self._state.new_sessions.discard(self)
         self._state.all_sessions.discard(self)
@@ -405,8 +405,8 @@ class StratumSession(RPCSession):
         except TypeError:
             try:
                 super().connection_lost()
-            except Exception:
-                pass
+            except Exception as e:
+                self.logger.debug("Error calling connection_lost: %s", e)
 
     async def handle_subscribe(self, *args):
         if self not in self._state.all_sessions:
@@ -570,8 +570,8 @@ class StratumSession(RPCSession):
                             if abs(vd - difficulty) / max(difficulty, 1e-9) >= 0.05:
                                 difficulty = vd
                                 self._share_difficulty = vd
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            self.logger.debug("Vardiff adjustment failed: %s", e)
                     await self.send_notification("mining.set_difficulty", (difficulty,))
                     self._last_activity = loop.time()
                     self.logger.debug(
@@ -719,8 +719,8 @@ class StratumSession(RPCSession):
             # Record rejected share (confidence accounting) using assigned diff
             try:
                 hashrate_tracker.add_share(worker, sent_diff, accepted=False)
-            except Exception:
-                pass
+            except Exception as e:
+                self.logger.debug("Failed to record rejected share: %s", e)
             if self._debug_shares:
                 self.logger.error(
                     "Low difficulty share: shareDiff=%.18f minerDiff=%.18f",
@@ -744,8 +744,8 @@ class StratumSession(RPCSession):
                 await _vardiff_mod.vardiff_manager.record_share(
                     worker, share_difficulty=sent_diff
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                self.logger.debug("Failed to record share for vardiff: %s", e)
 
         # Log share statistics asynchronously
         import time

@@ -1,8 +1,11 @@
 import time
 import asyncio
+import logging
 from collections import deque
 from dataclasses import dataclass
 from typing import Deque, Dict, Optional
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -156,8 +159,8 @@ class VarDiffManager:
                     cap = chain_diff * headroom
                     if new_diff > cap:
                         new_diff = cap
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Error adjusting difficulty for chain headroom: %s", e)
 
         # Apply only if material (>5%) change
         if abs(new_diff - st.difficulty) / max(st.difficulty, 1e-12) >= 0.05:
@@ -203,8 +206,8 @@ class VarDiffManager:
             }
             with open(self.state_path, "w") as f:
                 json.dump(data, f)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed to save vardiff state: %s", e)
 
     def _load_state(self):
         try:
@@ -223,8 +226,8 @@ class VarDiffManager:
                     last_retarget=vd.get("last_retarget", now),
                     ema_interval=vd.get("ema_interval"),
                 )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed to load vardiff state: %s", e)
 
     def export_state(self) -> dict:
         return {

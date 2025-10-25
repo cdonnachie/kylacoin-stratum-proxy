@@ -55,8 +55,8 @@ async def start_server(state, settings):
             # Force an initial tick so the (empty) state file is created promptly
             try:
                 await _vardiff_mod.vardiff_manager.tick()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Initial vardiff tick failed: %s", e)
 
             # Periodic tick task
             async def _vardiff_tick_loop():
@@ -66,8 +66,8 @@ async def start_server(state, settings):
                     try:
                         await asyncio.sleep(30)
                         await _vardiff_mod.vardiff_manager.tick()
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.debug("Periodic vardiff tick failed: %s", e)
 
             import asyncio
 

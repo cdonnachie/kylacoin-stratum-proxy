@@ -559,8 +559,8 @@ async def lcn_hash_fix_status():
                         row = await cur.fetchone()
                         if row:
                             bad_hash_count = row[0]
-            except Exception:
-                pass  # DB might not exist or table not created
+            except Exception as e:
+                logger.debug("Failed to query bad hash count: %s", e)
 
         needs_fix = bad_hash_count > 0
         return JSONResponse(

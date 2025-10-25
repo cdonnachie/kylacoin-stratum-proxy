@@ -1,4 +1,4 @@
-import time, os, base58
+import time, os, base58, logging
 from aiohttp import ClientSession
 from ..rpc import kcn as rpc_kcn
 from ..consensus.merkle import merkle_root_from_txids_le, merkle_branch_for_index0
@@ -7,6 +7,8 @@ from ..consensus.targets import (
     target_to_diff1,
 )
 from ..consensus.auxpow import refresh_aux_job
+
+logger = logging.getLogger(__name__)
 
 
 async def update_once(state, settings, http: ClientSession, force_update: bool = False):
@@ -168,8 +170,8 @@ async def update_once(state, settings, http: ClientSession, force_update: bool =
                         from ..stratum.session import hashratedict
 
                         hashratedict.pop(wid, None)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Failed to remove worker %s from hashrate tracker: %s", wid, e)
             else:
                 alive.add(sess)
         state.all_sessions = alive

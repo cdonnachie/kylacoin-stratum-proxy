@@ -1,0 +1,17 @@
+[bandit]
+# Configuration file for Bandit security scanner
+# See: https://bandit.readthedocs.io/en/latest/configuration/index.html
+
+exclude_dirs = ['/tests', '/test', '/.venv', '/venv', '.git']
+tests = 
+skips = 
+
+[bandit-assert_used:B101]
+# Skip assert checks - we use asserts only for input validation in non-critical paths
+skips = 
+
+[bandit-hardcoded_bind_all_interfaces:B104]
+# 0.0.0.0 is intentional for server services (stratum proxy, dashboard)
+# These are server-side network services, not client connections
+# Binding to all interfaces is the correct behavior for public-facing services
+skips = 
