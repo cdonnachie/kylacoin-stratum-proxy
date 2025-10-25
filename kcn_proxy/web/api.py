@@ -477,7 +477,9 @@ async def get_vardiff_state():
         return JSONResponse({"enabled": True, **manager.export_state()})
     except Exception as e:
         logger.error("Error exporting vardiff state: %s", e, exc_info=True)
-        return JSONResponse({"enabled": True, "error": "Failed to retrieve state"}, status_code=500)
+        return JSONResponse(
+            {"enabled": True, "error": "Failed to retrieve state"}, status_code=500
+        )
 
 
 @app.get("/favicon.ico")
@@ -536,7 +538,9 @@ async def clear_best_shares():
         )
     except Exception as e:
         logger.error("Error clearing best shares: %s", e)
-        return JSONResponse({"status": "error", "message": "Failed to clear shares"}, status_code=500)
+        return JSONResponse(
+            {"status": "error", "message": "Failed to clear shares"}, status_code=500
+        )
 
 
 @app.get("/api/lcn_hash_fix_status")
@@ -578,7 +582,9 @@ async def lcn_hash_fix_status():
         )
     except Exception as e:
         logger.error("Error checking LCN hash fix status: %s", e, exc_info=True)
-        return JSONResponse({"error": "Internal error", "show_button": False}, status_code=500)
+        return JSONResponse(
+            {"error": "Internal error", "show_button": False}, status_code=500
+        )
 
 
 @app.post("/api/fix_lcn_aux_hashes")
@@ -735,7 +741,9 @@ async def get_share_stats(worker: str = None, minutes: int = 10):
         return JSONResponse({"error": "Database not enabled"}, status_code=503)
     except Exception as e:
         logger.error("Error retrieving share stats: %s", e)
-        return JSONResponse({"error": "Failed to retrieve share statistics"}, status_code=500)
+        return JSONResponse(
+            {"error": "Failed to retrieve share statistics"}, status_code=500
+        )
 
 
 @app.post("/api/cleanup")
@@ -1019,7 +1027,9 @@ async def clear_miner_record(worker_name: str):
         return JSONResponse({"status": "success", "worker_name": worker_name})
     except Exception as e:
         logger.error("Error deleting miner record %s: %s", worker_name, e)
-        return JSONResponse({"status": "error", "message": "Failed to delete record"}, status_code=500)
+        return JSONResponse(
+            {"status": "error", "message": "Failed to delete record"}, status_code=500
+        )
 
 
 @app.get("/api/earnings")
