@@ -83,8 +83,6 @@ services:
     depends_on:
       kylacoin:
         condition: service_healthy
-      lyncoin:
-        condition: service_healthy
     environment:
       - KCN_RPC_HOST=kylacoin
       - KCN_RPC_PORT=${KCN_RPC_PORT:-5110}
@@ -98,7 +96,6 @@ services:
       - STRATUM_PORT=${STRATUM_PORT:-54321}
       - TESTNET=${TESTNET:-false}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      - VERBOSE=${VERBOSE:-false}
       - SHOW_JOBS=${SHOW_JOBS:-false}
       - USE_EASIER_TARGET=${USE_EASIER_TARGET:-true}
       - DEBUG_SHARES=${DEBUG_SHARES:-false}
