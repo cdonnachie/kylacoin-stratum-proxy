@@ -1340,7 +1340,7 @@ async def check_block_confirmations(
                 new_status = "pending"
                 if is_orphaned:
                     new_status = "orphaned"
-                elif confs >= 100:
+                elif confs >= 61:
                     new_status = "confirmed"
 
                 await db.execute(
@@ -1373,9 +1373,9 @@ async def check_block_confirmations(
                         (block_id,),
                     )
 
-                # Send notification if block reaches 100 confirmations
-                if confs >= 100 and new_status == "confirmed":
-                    if not block["confirmations"] >= 100:  # Only notify on transition
+                # Send notification if block reaches 61 confirmations
+                if confs >= 61 and new_status == "confirmed":
+                    if not block["confirmations"] >= 61:  # Only notify on transition
                         if not skip_notifications and notification_manager:
                             await notification_manager.notify_block_confirmed(
                                 chain=chain,
