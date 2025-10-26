@@ -1,10 +1,9 @@
 ---
 name: Bug Report
 about: Report a bug to help us improve
-title: '[BUG] '
+title: "[BUG] "
 labels: bug
-assignees: ''
-
+assignees: ""
 ---
 
 ## Description
@@ -54,6 +53,7 @@ Add any other context about the problem here.
 ---
 
 **Checklist:**
+
 - [ ] I have searched existing issues and this is not a duplicate
 - [ ] I am using the latest version of the proxy
 - [ ] I have included relevant logs/error messages

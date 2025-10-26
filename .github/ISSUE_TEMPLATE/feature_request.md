@@ -1,10 +1,9 @@
 ---
 name: Feature Request
 about: Suggest an idea for this project
-title: '[FEATURE] '
+title: "[FEATURE] "
 labels: enhancement
-assignees: ''
-
+assignees: ""
 ---
 
 ## Feature Description
@@ -38,6 +37,7 @@ Add any other context, mockups, or examples here.
 ---
 
 **Checklist:**
+
 - [ ] I have searched existing issues and this is not a duplicate
 - [ ] This feature aligns with the project's goals
 - [ ] I have provided clear use cases and examples

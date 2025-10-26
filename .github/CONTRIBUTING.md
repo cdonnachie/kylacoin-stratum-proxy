@@ -13,23 +13,27 @@ Thank you for your interest in contributing to the KCN Proxy project! We welcome
 ### Development Setup
 
 1. **Clone the repository**
+
    ```bash
    git clone https://github.com/cdonnachie/kylacoin-stratum-proxy.git
    cd kylacoin-stratum-proxy
    ```
 
 2. **Create a virtual environment**
+
    ```bash
    python -m venv venv
    source venv/bin/activate  # On Windows: venv\Scripts\activate
    ```
 
 3. **Install dependencies**
+
    ```bash
    pip install -r requirements.txt
    ```
 
 4. **Configure your environment**
+
    ```bash
    cp .env.example .env
    # Edit .env with your configuration
@@ -103,11 +107,13 @@ Add filter status indicator to shares dashboard
 Before submitting a pull request:
 
 1. **Syntax check** - Verify your Python code compiles
+
    ```bash
    python -m py_compile kcn_proxy/your_file.py
    ```
 
 2. **Manual testing** - Test your changes thoroughly
+
    - For UI changes: Test in both dark and light modes
    - For API changes: Test affected endpoints
    - For database changes: Verify data integrity
@@ -119,6 +125,7 @@ Before submitting a pull request:
 ### Pull Request Process
 
 1. **Create a feature branch**
+
    ```bash
    git checkout -b feature/your-feature-name
    ```
@@ -126,6 +133,7 @@ Before submitting a pull request:
 2. **Make your changes** and commit with clear messages
 
 3. **Push to your fork**
+
    ```bash
    git push origin feature/your-feature-name
    ```
