@@ -186,6 +186,102 @@ async def init_database():
         """
         )
 
+        # All shares submission log (for live feed and audit trail)
+        await db.execute(
+            """
+            CREATE TABLE IF NOT EXISTS shares (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                worker TEXT NOT NULL,
+                share_difficulty REAL NOT NULL,
+                sent_difficulty REAL NOT NULL,
+                difficulty_ratio REAL NOT NULL,
+                is_block BOOLEAN NOT NULL DEFAULT 0,
+                is_kcn_block BOOLEAN NOT NULL DEFAULT 0,
+                is_lcn_block BOOLEAN NOT NULL DEFAULT 0,
+                accepted BOOLEAN NOT NULL DEFAULT 1,
+                kcn_difficulty REAL NOT NULL,
+                lcn_difficulty REAL NOT NULL,
+                chain TEXT,
+                miner_software TEXT,
+                timestamp INTEGER NOT NULL
+            )
+        """
+        )
+
+        await db.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_shares_timestamp 
+            ON shares(timestamp DESC)
+        """
+        )
+
+        await db.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_shares_worker_timestamp 
+            ON shares(worker, timestamp DESC)
+        """
+        )
+
+        await db.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_shares_is_block 
+            ON shares(is_block, timestamp DESC)
+        """
+        )
+
+        await db.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_shares_accepted 
+            ON shares(accepted, timestamp DESC)
+        """
+        )
+
+        # Block confirmation tracking (for orphan detection and confirmation counting)
+        await db.execute(
+            """
+            CREATE TABLE IF NOT EXISTS block_confirmations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                chain TEXT NOT NULL,
+                height INTEGER NOT NULL,
+                block_hash TEXT NOT NULL,
+                worker TEXT NOT NULL,
+                confirmations INTEGER DEFAULT 0,
+                status TEXT DEFAULT 'pending',
+                last_check INTEGER NOT NULL,
+                first_submitted INTEGER NOT NULL,
+                submitted_timestamp INTEGER NOT NULL,
+                is_orphaned BOOLEAN DEFAULT 0,
+                notification_sent BOOLEAN DEFAULT 0,
+                orphan_notification_sent BOOLEAN DEFAULT 0
+            )
+        """
+        )
+
+        await db.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_block_confirmations_status
+            ON block_confirmations(chain, status, last_check DESC)
+        """
+        )
+
+        await db.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_block_confirmations_chain_height
+            ON block_confirmations(chain, height DESC)
+        """
+        )
+
+        # Database metadata table for tracking initialization state
+        await db.execute(
+            """
+            CREATE TABLE IF NOT EXISTS db_metadata (
+                key TEXT PRIMARY KEY,
+                value TEXT,
+                updated_at INTEGER
+            )
+        """
+        )
+
         await db.commit()
         logger.info(f"Database initialized at {DB_PATH}")
 
@@ -246,7 +342,123 @@ async def cleanup_on_startup():
         if cleanup_count > 0:
             logger.info(f"Marked {cleanup_count} stale connections as disconnected")
 
+        # Clean up shares older than 30 days on startup
+        thirty_days_ago = int(time.time()) - (30 * 24 * 3600)
+        await db.execute("DELETE FROM shares WHERE timestamp < ?", (thirty_days_ago,))
+        old_shares = db.total_changes
+        if old_shares > 0:
+            logger.info(f"Cleaned up {old_shares} shares older than 30 days")
+
         await db.commit()
+
+        # Seed block_confirmations from existing blocks on startup
+        seeding_complete = await seed_block_confirmations_from_blocks()
+
+        # Mark seeding complete on the confirmation monitor if it exists
+        if seeding_complete:
+            try:
+                from ..web.block_confirmation_monitor import get_confirmation_monitor
+
+                monitor = get_confirmation_monitor()
+                if monitor:
+                    monitor.seeding_complete = True
+                    logger.debug("Marked confirmation monitor seeding as complete")
+            except Exception as e:
+                logger.debug(f"Could not mark monitor seeding complete: {e}")
+
+
+async def seed_block_confirmations_from_blocks():
+    """
+    On startup, populate block_confirmations table from any existing blocks.
+    This ensures we start tracking all previously found blocks.
+    Only runs once per database - subsequent startups skip this.
+    Returns: True if seeding was performed, False if already seeded.
+    """
+    import time
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        # Check if seeding has already been done
+        cursor = await db.execute(
+            "SELECT value FROM db_metadata WHERE key = 'block_confirmations_seeded'"
+        )
+        seeded_row = await cursor.fetchone()
+
+        if seeded_row:
+            logger.debug(
+                "Block confirmations already seeded, skipping (previously done at %s)",
+                seeded_row[0],
+            )
+            return False
+
+        # Check if there are any blocks without confirmation tracking
+        cursor = await db.execute(
+            """
+            SELECT COUNT(*) FROM blocks b
+            WHERE NOT EXISTS (
+                SELECT 1 FROM block_confirmations bc
+                WHERE bc.chain = b.chain 
+                AND bc.height = b.height 
+                AND bc.block_hash = b.block_hash
+            )
+        """
+        )
+        untracked = (await cursor.fetchone())[0]
+
+        if untracked > 0:
+            logger.info(
+                f"Seeding {untracked} existing blocks into confirmation tracking"
+            )
+
+            current_time = int(time.time())
+
+            # Insert all blocks that don't have confirmation tracking yet
+            await db.execute(
+                """
+                INSERT INTO block_confirmations 
+                (chain, height, block_hash, worker, confirmations, status, 
+                 last_check, first_submitted, submitted_timestamp)
+                SELECT 
+                    b.chain,
+                    b.height,
+                    b.block_hash,
+                    b.worker,
+                    0,
+                    'pending',
+                    ?,
+                    b.timestamp,
+                    b.timestamp
+                FROM blocks b
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM block_confirmations bc
+                    WHERE bc.chain = b.chain 
+                    AND bc.height = b.height 
+                    AND bc.block_hash = b.block_hash
+                )
+            """,
+                (current_time,),
+            )
+
+            logger.info(
+                f"Successfully seeded {untracked} blocks for confirmation tracking"
+            )
+        else:
+            logger.debug("No untracked blocks to seed")
+
+        # Mark seeding as done (so we don't repeat on next startup)
+        await db.execute(
+            """
+            INSERT OR REPLACE INTO db_metadata (key, value, updated_at)
+            VALUES (?, ?, ?)
+            """,
+            ("block_confirmations_seeded", "true", int(time.time())),
+        )
+
+        await db.commit()
+        logger.info(
+            "Block confirmations seeding completed (will not repeat on restart)"
+        )
+
+        return True
 
 
 async def cleanup_old_data():
@@ -257,9 +469,11 @@ async def cleanup_old_data():
         # Keep blocks indefinitely - they're rare and valuable
         # Keep connections for 7 days
         # Keep share stats for 24 hours
+        # Keep shares for 30 days
 
         week_ago = int(time.time()) - (7 * 24 * 3600)
         day_ago = int(time.time()) - (24 * 3600)
+        thirty_days_ago = int(time.time()) - (30 * 24 * 3600)
 
         # Clean connections
         await db.execute("DELETE FROM connections WHERE timestamp < ?", (week_ago,))
@@ -269,11 +483,15 @@ async def cleanup_old_data():
         await db.execute("DELETE FROM share_stats WHERE timestamp < ?", (day_ago,))
         shares_cleaned = db.total_changes
 
+        # Clean old shares - keep 30 days of history
+        await db.execute("DELETE FROM shares WHERE timestamp < ?", (thirty_days_ago,))
+        old_shares_cleaned = db.total_changes
+
         await db.commit()
 
-        if connections_cleaned > 0 or shares_cleaned > 0:
+        if connections_cleaned > 0 or shares_cleaned > 0 or old_shares_cleaned > 0:
             logger.info(
-                f"Periodic cleanup: {connections_cleaned} connections, {shares_cleaned} share stats"
+                f"Periodic cleanup: {connections_cleaned} connections, {shares_cleaned} share stats, {old_shares_cleaned} old shares"
             )
 
 
@@ -386,7 +604,7 @@ async def update_share_stats(
 
 
 async def get_recent_blocks(limit: int = 50, offset: int = 0):
-    """Get recent blocks found with pagination support"""
+    """Get recent blocks found with pagination support, including confirmation data"""
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
 
@@ -395,11 +613,18 @@ async def get_recent_blocks(limit: int = 50, offset: int = 0):
         count_row = await count_cursor.fetchone()
         total_count = count_row["total"] if count_row else 0
 
-        # Get paginated results
+        # Get paginated results with LEFT JOIN to confirmations
         cursor = await db.execute(
             """
-            SELECT * FROM blocks
-            ORDER BY timestamp DESC
+            SELECT 
+                b.*,
+                COALESCE(bc.confirmations, 0) as confirmations,
+                COALESCE(bc.status, 'unknown') as confirmation_status,
+                COALESCE(bc.is_orphaned, 0) as is_orphaned
+            FROM blocks b
+            LEFT JOIN block_confirmations bc 
+                ON b.chain = bc.chain AND b.block_hash = bc.block_hash
+            ORDER BY b.timestamp DESC
             LIMIT ? OFFSET ?
         """,
             (limit, offset),
@@ -412,7 +637,7 @@ async def get_recent_blocks(limit: int = 50, offset: int = 0):
 
 
 async def get_blocks_by_chain(chain: str, limit: int = 10, offset: int = 0):
-    """Get recent blocks for a specific chain with pagination"""
+    """Get recent blocks for a specific chain with pagination, including confirmation data"""
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
 
@@ -424,12 +649,19 @@ async def get_blocks_by_chain(chain: str, limit: int = 10, offset: int = 0):
         count_row = await count_cursor.fetchone()
         total = count_row["total"] if count_row else 0
 
-        # Get paginated results
+        # Get paginated results with LEFT JOIN to confirmations
         cursor = await db.execute(
             """
-            SELECT * FROM blocks
-            WHERE chain = ?
-            ORDER BY timestamp DESC
+            SELECT 
+                b.*,
+                COALESCE(bc.confirmations, 0) as confirmations,
+                COALESCE(bc.status, 'unknown') as confirmation_status,
+                COALESCE(bc.is_orphaned, 0) as is_orphaned
+            FROM blocks b
+            LEFT JOIN block_confirmations bc 
+                ON b.chain = bc.chain AND b.block_hash = bc.block_hash
+            WHERE b.chain = ?
+            ORDER BY b.timestamp DESC
             LIMIT ? OFFSET ?
         """,
             (chain, limit, offset),
@@ -962,3 +1194,269 @@ async def mark_miner_disconnected(worker_name: str):
             (int(time.time()), worker_name),
         )
         await db.commit()
+
+
+# ============================================================================
+# Block Confirmation Tracking Functions (Orphan Detection)
+# ============================================================================
+
+
+async def record_block_for_confirmation(
+    chain: str,
+    height: int,
+    block_hash: str,
+    worker: str,
+):
+    """
+    Record a submitted block for confirmation tracking.
+    Called when a block is submitted to track its confirmation count over time.
+    """
+    import time
+
+    current_time = int(time.time())
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            """
+            INSERT INTO block_confirmations 
+            (chain, height, block_hash, worker, confirmations, status, 
+             last_check, first_submitted, submitted_timestamp)
+            VALUES (?, ?, ?, ?, 0, 'pending', ?, ?, ?)
+        """,
+            (
+                chain,
+                height,
+                block_hash,
+                worker,
+                current_time,
+                current_time,
+                current_time,
+            ),
+        )
+        await db.commit()
+        logger.info(
+            f"Recording {chain} block at height {height} for confirmation tracking"
+        )
+
+
+async def update_block_confirmations(
+    chain: str,
+    confirmations: int,
+    is_orphaned: bool = False,
+):
+    """
+    Update confirmation count for blocks at a specific height.
+    For solo mining, a block is either orphaned or has N confirmations.
+
+    Args:
+        chain: 'KCN' or 'LCN'
+        confirmations: Current confirmation count
+        is_orphaned: True if block is orphaned (not in main chain)
+    """
+    import time
+
+    current_time = int(time.time())
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        # Update all pending blocks (in case of chain reorg, multiple heights may be tracked)
+        if is_orphaned:
+            await db.execute(
+                """
+                UPDATE block_confirmations
+                SET confirmations = ?, status = 'orphaned', is_orphaned = 1, last_check = ?
+                WHERE chain = ? AND status = 'pending'
+            """,
+                (confirmations, current_time, chain),
+            )
+            logger.warning(f"{chain} block marked as orphaned")
+        else:
+            # Update confirmations for pending blocks
+            await db.execute(
+                """
+                UPDATE block_confirmations
+                SET confirmations = ?, last_check = ?
+                WHERE chain = ? AND status = 'pending' AND is_orphaned = 0
+            """,
+                (confirmations, current_time, chain),
+            )
+
+        await db.commit()
+
+
+async def check_block_confirmations(
+    chain: str,
+    get_confirmations_func,
+    node_url: str = None,
+    notification_manager=None,
+    skip_notifications: bool = False,
+):
+    """
+    Check confirmation status of pending blocks via RPC.
+    Called periodically (e.g., every 5 minutes) to poll blockchain.
+
+    Args:
+        chain: 'KCN' or 'LCN'
+        get_confirmations_func: Async function that returns (confirmations, is_orphaned) for a block hash
+        node_url: RPC node URL
+        notification_manager: For sending notifications
+        skip_notifications: If True, skip sending notifications (used during initial seeding)
+    """
+    import time
+
+    current_time = int(time.time())
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+
+        # Get all pending blocks for this chain
+        cursor = await db.execute(
+            """
+            SELECT id, chain, height, block_hash, worker, confirmations, is_orphaned
+            FROM block_confirmations
+            WHERE chain = ? AND status = 'pending'
+            ORDER BY last_check ASC
+            """,
+            (chain,),
+        )
+        blocks = await cursor.fetchall()
+
+        for block in blocks:
+            try:
+                block_id = block["id"]
+                height = block["height"]
+                block_hash = block["block_hash"]
+                worker = block["worker"]
+                current_confirmations = block["confirmations"]
+
+                # Query blockchain for current confirmation status
+                # Note: get_confirmations_func is a bound method that already has node_url context
+                confs, is_orphaned = await get_confirmations_func(block_hash)
+
+                logger.info(
+                    f"{chain} block {height}: {confs} confirmations, orphaned={is_orphaned}"
+                )
+
+                # Update database with latest confirmation count
+                new_status = "pending"
+                if is_orphaned:
+                    new_status = "orphaned"
+                elif confs >= 100:
+                    new_status = "confirmed"
+
+                await db.execute(
+                    """
+                    UPDATE block_confirmations
+                    SET confirmations = ?, status = ?, is_orphaned = ?, last_check = ?
+                    WHERE id = ?
+                """,
+                    (confs, new_status, is_orphaned, current_time, block_id),
+                )
+
+                # Send notification if status changed to orphaned
+                if is_orphaned and not block["is_orphaned"]:
+                    if not skip_notifications and notification_manager:
+                        await notification_manager.notify_block_orphaned(
+                            chain=chain,
+                            height=height,
+                            block_hash=block_hash,
+                            worker=worker,
+                        )
+                    logger.warning(
+                        f"🚫 {chain} BLOCK ORPHANED - Height: {height}, Worker: {worker}"
+                    )
+                    await db.execute(
+                        """
+                        UPDATE block_confirmations
+                        SET orphan_notification_sent = 1
+                        WHERE id = ?
+                    """,
+                        (block_id,),
+                    )
+
+                # Send notification if block reaches 100 confirmations
+                if confs >= 100 and new_status == "confirmed":
+                    if not block["confirmations"] >= 100:  # Only notify on transition
+                        if not skip_notifications and notification_manager:
+                            await notification_manager.notify_block_confirmed(
+                                chain=chain,
+                                height=height,
+                                block_hash=block_hash,
+                                confirmations=confs,
+                                worker=worker,
+                            )
+                        logger.info(
+                            f"✓ {chain} BLOCK CONFIRMED (spending allowed) - Height: {height}, Confirmations: {confs}, Worker: {worker}"
+                        )
+                        await db.execute(
+                            """
+                            UPDATE block_confirmations
+                            SET notification_sent = 1
+                            WHERE id = ?
+                        """,
+                            (block_id,),
+                        )
+
+            except Exception as e:
+                logger.error(f"Error checking confirmations for {chain} block: {e}")
+
+        await db.commit()
+
+
+async def get_pending_blocks(chain: str = None):
+    """Get all pending blocks awaiting confirmation"""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+
+        if chain:
+            cursor = await db.execute(
+                """
+                SELECT * FROM block_confirmations
+                WHERE status = 'pending' AND chain = ?
+                ORDER BY submitted_timestamp DESC
+            """,
+                (chain,),
+            )
+        else:
+            cursor = await db.execute(
+                """
+                SELECT * FROM block_confirmations
+                WHERE status = 'pending'
+                ORDER BY submitted_timestamp DESC
+            """
+            )
+
+        blocks = await cursor.fetchall()
+        return [dict(row) for row in blocks]
+
+
+async def get_block_confirmation_status(chain: str = None, limit: int = 50):
+    """Get recent block confirmation statuses"""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+
+        if chain:
+            cursor = await db.execute(
+                """
+                SELECT chain, height, block_hash, worker, confirmations, status, 
+                       submitted_timestamp, is_orphaned
+                FROM block_confirmations
+                WHERE chain = ?
+                ORDER BY submitted_timestamp DESC
+                LIMIT ?
+            """,
+                (chain, limit),
+            )
+        else:
+            cursor = await db.execute(
+                """
+                SELECT chain, height, block_hash, worker, confirmations, status, 
+                       submitted_timestamp, is_orphaned
+                FROM block_confirmations
+                ORDER BY submitted_timestamp DESC
+                LIMIT ?
+            """,
+                (limit,),
+            )
+
+        blocks = await cursor.fetchall()
+        return [dict(row) for row in blocks]

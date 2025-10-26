@@ -1,0 +1,264 @@
+/* Shares page specific styles */
+
+.shares-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.filters-panel {
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-group label {
+  opacity: 0.7;
+  font-size: 0.9em;
+  color: var(--text);
+}
+
+.filter-group input,
+.filter-group select {
+  padding: 6px 10px;
+  border: 1px solid var(--card-border);
+  border-radius: 4px;
+  background: var(--btn-bg);
+  color: var(--text);
+  font-size: 0.9em;
+}
+
+.filter-group button {
+  padding: 6px 12px;
+  background: var(--badge-accepted);
+  border: none;
+  border-radius: 4px;
+  color: white;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+
+.filter-group button:hover {
+  background: var(--badge-kcn-light);
+}
+
+.stats-panel {
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-item .label {
+  opacity: 0.6;
+  font-size: 0.8em;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text);
+}
+
+.stat-item .value {
+  font-size: 1.4em;
+  font-weight: 600;
+  color: var(--badge-accepted);
+}
+
+.shares-table-wrapper {
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.shares-table-header {
+  padding: 16px;
+  border-bottom: 1px solid var(--card-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.shares-table-header h3 {
+  margin: 0;
+  opacity: 0.9;
+  color: var(--text);
+}
+
+.live-indicator {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background: var(--badge-accepted);
+  border-radius: 50%;
+  animation: pulse 1s infinite;
+  margin-right: 6px;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.shares-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9em;
+}
+
+.shares-table thead {
+  background: var(--table-head);
+  border-bottom: 2px solid var(--card-border);
+}
+
+.shares-table th {
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 600;
+  opacity: 0.8;
+  color: var(--text);
+}
+
+.shares-table td {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--card-border);
+  color: var(--text);
+}
+
+.shares-table tr:hover {
+  background: var(--row-hover);
+}
+
+.share-row.block {
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.share-row.rejected {
+  opacity: 0.6;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.8em;
+  font-weight: 600;
+}
+
+.status-accepted {
+  background: rgba(16, 185, 129, 0.3);
+  color: var(--badge-accepted);
+}
+
+.status-rejected {
+  background: rgba(231, 76, 60, 0.3);
+  color: var(--badge-rejected);
+}
+
+.status-block {
+  background: rgba(249, 115, 22, 0.3);
+  color: var(--badge-lcn);
+}
+
+.worker-name {
+  font-family: monospace;
+  opacity: 0.8;
+}
+
+.difficulty-ratio {
+  font-family: monospace;
+  opacity: 0.8;
+}
+
+.difficulty-ratio.good {
+  color: var(--badge-accepted);
+}
+
+.difficulty-ratio.warning {
+  color: var(--badge-lcn);
+}
+
+.difficulty-ratio.danger {
+  color: var(--badge-rejected);
+}
+
+.time-ago {
+  opacity: 0.6;
+  font-size: 0.85em;
+}
+
+.no-shares {
+  padding: 32px;
+  text-align: center;
+  opacity: 0.5;
+  color: var(--text);
+}
+
+.auto-scroll-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85em;
+  color: var(--text);
+}
+
+.auto-scroll-toggle input {
+  cursor: pointer;
+}
+
+@media (max-width: 780px) {
+  .filters-panel {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filter-group {
+    width: 100%;
+  }
+
+  .filter-group input,
+  .filter-group select {
+    flex: 1;
+  }
+
+  .shares-table {
+    font-size: 0.8em;
+  }
+
+  .shares-table th,
+  .shares-table td {
+    padding: 8px 12px;
+  }
+
+  .shares-table-header {
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+  }
+}

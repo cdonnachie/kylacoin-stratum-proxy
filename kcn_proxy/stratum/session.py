@@ -4,6 +4,7 @@ import json
 import logging
 import asyncio
 import math
+import time
 
 from aiorpcx import (
     RPCSession,
@@ -802,6 +803,29 @@ class StratumSession(RPCSession):
             lcn_difficulty,
         )
 
+        # Broadcast to share feed for real-time dashboard
+        try:
+            from ..web.share_feed import get_share_feed_manager
+
+            feed_manager = get_share_feed_manager()
+            asyncio.create_task(
+                feed_manager.add_share(
+                    worker=worker,
+                    share_difficulty=share_diff,
+                    sent_difficulty=sent_diff,
+                    is_block=is_block,
+                    accepted=True,
+                    kcn_difficulty=kcn_difficulty,
+                    lcn_difficulty=lcn_difficulty,
+                    chain=block_msg if is_block else None,
+                    miner_software=getattr(self, "_miner_software", None),
+                    is_kcn_block=is_kcn_block,
+                    is_lcn_block=is_lcn_block,
+                )
+            )
+        except Exception as e:
+            self.logger.debug("Failed to add share to feed: %s", e)
+
         # Submit to appropriate blockchain(s)
         if is_kcn_block or is_lcn_block:
             import time
@@ -1183,6 +1207,21 @@ class StratumSession(RPCSession):
                     except Exception as e:
                         self.logger.debug("In-memory block tracking failed: %s", e)
 
+                    # Record KCN block for confirmation tracking if DB enabled
+                    try:
+                        from ..db.schema import record_block_for_confirmation
+
+                        await record_block_for_confirmation(
+                            chain="KCN",
+                            height=kcn_height_for_notif,
+                            block_hash=parent_block_hash_for_auxpow.hex(),
+                            worker=worker,
+                        )
+                    except ImportError:
+                        pass  # Database not enabled
+                    except Exception as e:
+                        self.logger.debug("Block confirmation tracking failed: %s", e)
+
                 if lcn_accepted:
                     # For the aux (LCN) chain, we should record the aux hash, not the parent KCN block hash
                     lcn_aux_hash = getattr(aux_job_snapshot, "aux_hash", None)
@@ -1238,6 +1277,21 @@ class StratumSession(RPCSession):
                         )
                     except Exception as e:
                         self.logger.debug("In-memory block tracking failed: %s", e)
+
+                    # Record LCN block for confirmation tracking if DB enabled
+                    try:
+                        from ..db.schema import record_block_for_confirmation
+
+                        await record_block_for_confirmation(
+                            chain="LCN",
+                            height=lcn_height_for_notif,
+                            block_hash=lcn_aux_hash,
+                            worker=worker,
+                        )
+                    except ImportError:
+                        pass  # Database not enabled
+                    except Exception as e:
+                        self.logger.debug("Block confirmation tracking failed: %s", e)
         return True
 
     async def handle_eth_submitHashrate(self, hashrate: str, clientid: str):

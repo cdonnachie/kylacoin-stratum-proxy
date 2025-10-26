@@ -1,6 +1,6 @@
 """FastAPI web server for mining dashboard"""
 
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, Query
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -8,7 +8,9 @@ from pathlib import Path
 import time
 import logging
 import os
+import asyncio
 from ..stratum import vardiff as _vardiff_mod
+from .share_feed import get_share_feed_manager
 
 logger = logging.getLogger("WebAPI")
 
@@ -245,6 +247,62 @@ async def get_blocks(limit: int = 100, offset: int = 0):
                 "total": result["total"],
                 "source": "memory",
             }
+        )
+
+
+@app.get("/api/blocks/confirmations")
+async def get_block_confirmations(chain: str = None, limit: int = 50):
+    """Get block confirmation status for pending/confirmed blocks"""
+    try:
+        from ..db.schema import get_block_confirmation_status
+
+        blocks = await get_block_confirmation_status(chain=chain, limit=limit)
+
+        return JSONResponse(
+            {
+                "blocks": blocks,
+                "total": len(blocks),
+                "chain": chain,
+            }
+        )
+    except ImportError:
+        return JSONResponse(
+            {"error": "Database not enabled"},
+            status_code=503,
+        )
+    except Exception as e:
+        logger.error("Failed to get block confirmations: %s", e)
+        return JSONResponse(
+            {"error": str(e)},
+            status_code=500,
+        )
+
+
+@app.get("/api/blocks/pending")
+async def get_pending_blocks(chain: str = None):
+    """Get pending blocks awaiting confirmation"""
+    try:
+        from ..db.schema import get_pending_blocks
+
+        blocks = await get_pending_blocks(chain=chain)
+
+        return JSONResponse(
+            {
+                "blocks": blocks,
+                "total": len(blocks),
+                "chain": chain,
+            }
+        )
+    except ImportError:
+        return JSONResponse(
+            {"error": "Database not enabled"},
+            status_code=503,
+        )
+    except Exception as e:
+        logger.error("Failed to get pending blocks: %s", e)
+        return JSONResponse(
+            {"error": str(e)},
+            status_code=500,
         )
 
 
@@ -704,7 +762,7 @@ async def fix_lcn_aux_hashes(limit: int | None = None, dry_run: bool = False):
     )
 
 
-@app.get("/api/shares")
+@app.get("/api/shares/summary")
 async def get_share_stats(worker: str = None, minutes: int = 10):
     """Get recent share statistics for debugging hashrate calculation"""
     try:
@@ -1181,3 +1239,115 @@ async def get_earnings_estimate():
             {"status": "error", "message": "Failed to calculate earnings"},
             status_code=500,
         )
+
+
+@app.get("/shares")
+async def shares_page() -> HTMLResponse:
+    """Serve the shares live feed page"""
+    html_path = Path(__file__).parent / "static" / "shares.html"
+    if html_path.exists():
+        return HTMLResponse(html_path.read_text())
+    return HTMLResponse("<h1>Shares page not found</h1>")
+
+
+@app.get("/api/shares")
+async def get_shares(
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    worker: str = Query(None),
+    accepted_only: bool = Query(False),
+    blocks_only: bool = Query(False),
+):
+    """Get recent shares with optional filtering"""
+    feed_manager = get_share_feed_manager()
+    result = await feed_manager.get_shares(
+        limit=limit,
+        offset=offset,
+        worker=worker,
+        accepted_only=accepted_only,
+        blocks_only=blocks_only,
+    )
+    return JSONResponse(result)
+
+
+@app.get("/api/shares/stats")
+async def get_shares_stats():
+    """Get share statistics"""
+    feed_manager = get_share_feed_manager()
+    stats = await feed_manager.get_statistics()
+
+    # Add connected workers count from Stratum sessions
+    if state:
+        stats["connected_workers"] = len(state.all_sessions)
+    else:
+        stats["connected_workers"] = 0
+
+    return JSONResponse(stats)
+
+
+@app.websocket("/ws/shares")
+async def websocket_shares(websocket: WebSocket):
+    """WebSocket endpoint for real-time share feed streaming"""
+    logger.info("WebSocket connection attempt from %s", websocket.client)
+    try:
+        await websocket.accept()
+        logger.info("WebSocket client accepted: %s", websocket.client)
+    except Exception as e:
+        logger.error(
+            "Failed to accept WebSocket connection from %s: %s",
+            websocket.client,
+            e,
+            exc_info=True,
+        )
+        return
+
+    feed_manager = get_share_feed_manager()
+
+    # Create a queue for this client with larger buffer for slower connections
+    try:
+        logger.debug("Creating queue for WebSocket client: %s", websocket.client)
+        client_queue: asyncio.Queue = asyncio.Queue(
+            maxsize=feed_manager._client_queue_size
+        )
+        logger.debug("Queue created, registering with feed manager")
+        await feed_manager.register_client(client_queue)
+        logger.info("WebSocket client registered with queue: %s", websocket.client)
+    except Exception as e:
+        logger.error(
+            "Failed to register WebSocket client %s: %s",
+            websocket.client,
+            e,
+            exc_info=True,
+        )
+        try:
+            await websocket.close(code=1011)
+        except Exception:
+            pass
+        return
+
+    try:
+        while True:
+            try:
+                # Wait for message from queue with timeout for keepalive
+                message = await asyncio.wait_for(client_queue.get(), timeout=30)
+                try:
+                    await websocket.send_text(message)
+                except Exception as send_error:
+                    logger.debug("Failed to send message: %s", send_error)
+                    break
+            except asyncio.TimeoutError:
+                # Send keepalive ping to prevent client timeout
+                try:
+                    await websocket.send_json({"type": "ping"})
+                except Exception as ping_error:
+                    logger.debug("Failed to send ping: %s", ping_error)
+                    break
+    except Exception as e:
+        logger.debug("WebSocket loop error: %s", e)
+    finally:
+        await feed_manager.unregister_client(client_queue)
+        try:
+            await websocket.close()
+        except Exception:
+            pass
+        logger.debug("WebSocket client disconnected")

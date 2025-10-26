@@ -26,6 +26,11 @@
         />
       </h1>
 
+      <nav class="dashboard-nav">
+        <a href="/" class="nav-link active">Overview</a>
+        <a href="/shares" class="nav-link">Live Shares</a>
+      </nav>
+
       <div class="stats-grid">
         <div
           class="stat-card"
@@ -767,7 +772,7 @@
                     <th class="col-num">Height</th>
                     <th>Block Hash</th>
                     <th>Worker</th>
-                    <th>Status</th>
+                    <th class="col-status">Status</th>
                     <th class="col-num">Time</th>
                   </tr>
                 </thead>
@@ -834,7 +839,7 @@
                     <th class="col-num">Height</th>
                     <th>Block Hash</th>
                     <th>Worker</th>
-                    <th>Status</th>
+                    <th class="col-status">Status</th>
                     <th class="col-num">Time</th>
                   </tr>
                 </thead>
@@ -1899,19 +1904,53 @@
           const kcnOffset = (kcnPage - 1) * perPage;
           const lcnOffset = (lcnPage - 1) * perPage;
 
-          // Fetch KCN blocks for current page (chain-specific endpoint with offset)
+          // Fetch KCN blocks for current page
           const kcnResponse = await fetch(
             `/api/blocks/kcn?limit=${perPage}&offset=${kcnOffset}`
           );
           const kcnData = await kcnResponse.json();
-          const kcnBlocks = kcnData.blocks;
+          const kcnBlocks = kcnData.blocks || [];
 
-          // Fetch LCN blocks for current page (chain-specific endpoint with offset)
+          // Fetch LCN blocks for current page
           const lcnResponse = await fetch(
             `/api/blocks/lcn?limit=${perPage}&offset=${lcnOffset}`
           );
           const lcnData = await lcnResponse.json();
-          const lcnBlocks = lcnData.blocks;
+          const lcnBlocks = lcnData.blocks || [];
+
+          // Confirmation data is now included in the blocks via LEFT JOIN
+          // No need for separate API call anymore!
+
+          // Ensure confirmation fields exist and have defaults
+          kcnBlocks.forEach((block) => {
+            if (
+              block.confirmations === undefined ||
+              block.confirmations === null
+            ) {
+              block.confirmations = 0;
+            }
+            if (!block.confirmation_status) {
+              block.confirmation_status = "unknown";
+            }
+            if (block.is_orphaned === undefined || block.is_orphaned === null) {
+              block.is_orphaned = false;
+            }
+          });
+
+          lcnBlocks.forEach((block) => {
+            if (
+              block.confirmations === undefined ||
+              block.confirmations === null
+            ) {
+              block.confirmations = 0;
+            }
+            if (!block.confirmation_status) {
+              block.confirmation_status = "unknown";
+            }
+            if (block.is_orphaned === undefined || block.is_orphaned === null) {
+              block.is_orphaned = false;
+            }
+          });
 
           // Check for new KCN blocks
           if (
@@ -1930,10 +1969,10 @@
           // Check for new LCN blocks
           if (
             blocksPaginationState.lcn.lastSeenTotal > 0 &&
-            kcnData.total > blocksPaginationState.lcn.lastSeenTotal
+            lcnData.total > blocksPaginationState.lcn.lastSeenTotal
           ) {
             const newBlocksCount =
-              kcnData.total - blocksPaginationState.lcn.lastSeenTotal;
+              lcnData.total - blocksPaginationState.lcn.lastSeenTotal;
             showNotification(
               `🎉 ${newBlocksCount} new LCN block${
                 newBlocksCount > 1 ? "s" : ""
@@ -1955,9 +1994,9 @@
         } catch (error) {
           console.error("Error fetching blocks:", error);
           document.getElementById("kcn-blocks-body").innerHTML =
-            '<tr><td colspan="5" class="no-data">Error</td></tr>';
+            '<tr><td colspan="6" class="no-data">Error</td></tr>';
           document.getElementById("lcn-blocks-body").innerHTML =
-            '<tr><td colspan="5" class="no-data">Error</td></tr>';
+            '<tr><td colspan="6" class="no-data">Error</td></tr>';
         }
       }
 
@@ -1980,6 +2019,49 @@
             block.chain === "KCN"
               ? "https://kcnxp.com/block/"
               : "https://lcnxp.com/block/";
+
+          // Determine status badge styling
+          let statusBadgeClass = "badge-accepted";
+          let statusText = block.accepted ? "Accepted" : "Rejected";
+
+          if (block.is_orphaned) {
+            statusBadgeClass = "badge-orphaned";
+            statusText = "Orphaned";
+          } else if (
+            block.confirmation_status === "confirmed" ||
+            block.confirmations >= 100
+          ) {
+            statusBadgeClass = "badge-confirmed";
+            statusText = "Confirmed";
+          } else if (
+            block.confirmation_status === "pending" ||
+            block.confirmations > 0
+          ) {
+            statusBadgeClass = "badge-pending";
+            statusText = "Confirming";
+          } else if (block.confirmation_status === "unknown") {
+            statusBadgeClass = "badge-unknown";
+            statusText = "Unknown";
+          }
+
+          // Format confirmations display
+          let confirmationsDisplay = "—";
+          if (
+            block.confirmations !== undefined &&
+            block.confirmations !== null
+          ) {
+            confirmationsDisplay = block.confirmations.toLocaleString();
+            if (block.confirmations >= 100) {
+              confirmationsDisplay += " ✓";
+            }
+          }
+
+          // Build tooltip for status badge
+          let statusTooltip = `Confirmations: ${confirmationsDisplay}`;
+          if (block.is_orphaned) {
+            statusTooltip = `Orphaned block`;
+          }
+
           return `
             <tr>
               <td class="col-num">${block.height}</td>
@@ -1996,9 +2078,7 @@
                 </div>
               </td>
               <td title="${block.worker}">${displayWorker(block.worker)}</td>
-              <td><span class="badge badge-${
-                block.accepted ? "accepted" : "rejected"
-              }">${block.accepted ? "Accepted" : "Rejected"}</span></td>
+              <td class="col-status"><span class="badge ${statusBadgeClass}" title="${statusTooltip}">${statusText}</span></td>
               <td class="col-num" title="${absTime}">${formatTime(
             block.timestamp
           )}</td>

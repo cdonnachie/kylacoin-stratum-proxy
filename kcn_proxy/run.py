@@ -130,6 +130,31 @@ def run_with_settings(settings: Settings):
         else:
             logger.debug("Database disabled - snapshots and cleanup skipped")
 
+        # Start block confirmation monitor if database enabled
+        confirmation_monitor = None
+        if settings.enable_database:
+            from .web.block_confirmation_monitor import get_confirmation_monitor
+
+            confirmation_monitor = get_confirmation_monitor()
+            confirmation_monitor.set_rpc_urls(settings.node_url, settings.aux_url)
+
+            # Set notification manager if available
+            if settings.discord_webhook or (
+                settings.telegram_bot_token and settings.telegram_chat_id
+            ):
+                from .utils.notifications import NotificationManager
+
+                notification_manager = NotificationManager(
+                    discord_webhook=settings.discord_webhook,
+                    telegram_bot_token=settings.telegram_bot_token,
+                    telegram_chat_id=settings.telegram_chat_id,
+                )
+                confirmation_monitor.set_notification_manager(notification_manager)
+
+            # Start the monitor background task
+            await confirmation_monitor.start()
+            logger.info("Block confirmation monitor started (5-minute poll interval)")
+
         # Start periodic price updates (runs regardless of database status)
         async def periodic_price_updates():
             from .utils.price_tracker import get_price_tracker

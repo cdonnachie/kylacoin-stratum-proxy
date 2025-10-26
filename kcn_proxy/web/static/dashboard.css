@@ -111,6 +111,38 @@ h1 {
   vertical-align: middle;
 }
 
+/* Navigation */
+.dashboard-nav {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  margin: 0 0 28px;
+  border-bottom: 1px solid var(--card-border);
+  padding-bottom: 12px;
+}
+
+.nav-link {
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.95em;
+  padding: 8px 16px;
+  border-radius: 6px;
+  transition: all 0.2s;
+  opacity: 0.7;
+}
+
+.nav-link:hover {
+  opacity: 1;
+  background: var(--card-highlight);
+}
+
+.nav-link.active {
+  opacity: 1;
+  color: #05a532;
+  border-bottom: 2px solid #05a532;
+}
+
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -258,6 +290,10 @@ tr:hover {
 .col-num {
   text-align: right;
 }
+.col-status {
+  text-align: center;
+  width: 10%;
+}
 .no-data {
   text-align: center;
   padding: 34px 8px;
@@ -314,6 +350,26 @@ tr:hover {
 }
 .badge-rejected {
   background: var(--badge-rejected);
+  color: #fff;
+}
+.badge-confirmed {
+  background: #27ae60;
+  color: #fff;
+}
+.badge-pending {
+  background: #f39c12;
+  color: #fff;
+}
+.badge-confirming {
+  background: #3498db;
+  color: #fff;
+}
+.badge-orphaned {
+  background: #e74c3c;
+  color: #fff;
+}
+.badge-unknown {
+  background: #95a5a6;
   color: #fff;
 }
 #block-only-badge {
@@ -1018,4 +1074,37 @@ body[data-compact-workers="true"] .dual-blocks {
     opacity: 1;
     transform: translate(-50%, -50%);
   }
+}
+
+@media (max-width: 600px) {
+  .dashboard-nav {
+    gap: 12px;
+    margin: 0 0 20px;
+  }
+
+  .nav-link {
+    font-size: 0.85em;
+    padding: 6px 12px;
+  }
+}
+
+/* Theme toggle button styles */
+.theme-toggle-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: var(--btn-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+  color: var(--text);
+  font-size: 1.1em;
+  padding: 0;
+}
+
+.theme-toggle-button:hover {
+  background: var(--btn-bg-hover);
 }

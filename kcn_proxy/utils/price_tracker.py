@@ -185,51 +185,34 @@ class PriceTracker:
             async with aiohttp.ClientSession() as session:
                 # Get KCN block reward
                 try:
-                    kcn_payload = {
-                        "jsonrpc": "1.0",
-                        "id": "getblocktemplate",
-                        "method": "getblocktemplate",
-                        "params": [{"rules": ["segwit"]}],
-                    }
-                    kcn_url = f"http://{settings.rpcuser}:{settings.rpcpass}@{settings.rpcip}:{settings.rpcport}"
-                    async with session.post(
-                        kcn_url,
-                        json=kcn_payload,
-                        timeout=aiohttp.ClientTimeout(total=2),
-                    ) as resp:
-                        if resp.status == 200:
-                            data = await resp.json()
-                            if "result" in data and data["result"]:
-                                coinbasevalue = data["result"].get("coinbasevalue", 0)
-                                kcn_reward = coinbasevalue / 1e12
-                                logger.debug(
-                                    f"KCN block reward: {kcn_reward} coins (coinbasevalue: {coinbasevalue})"
-                                )
+                    from ..rpc.kcn import getblocktemplate as kcn_getblocktemplate
+
+                    kcn_url = settings.node_url
+                    result = await kcn_getblocktemplate(session, kcn_url)
+
+                    if result and "result" in result and result["result"]:
+                        coinbasevalue = result["result"].get("coinbasevalue", 0)
+                        kcn_reward = coinbasevalue / 1e12
+                        logger.debug(
+                            f"KCN block reward: {kcn_reward} coins (coinbasevalue: {coinbasevalue})"
+                        )
                 except Exception as e:
                     logger.warning(f"Could not fetch KCN block reward: {e}")
 
                 # Get LCN block reward
                 try:
-                    lcn_url = f"http://{settings.aux_rpcuser}:{settings.aux_rpcpass}@{settings.aux_rpcip}:{settings.aux_rpcport}"
-                    lcn_payload = {
-                        "jsonrpc": "1.0",
-                        "id": "getblocktemplate_lcn",
-                        "method": "getblocktemplate",
-                        "params": [{"rules": ["segwit"]}],
-                    }
-                    async with session.post(
-                        lcn_url,
-                        json=lcn_payload,
-                        timeout=aiohttp.ClientTimeout(total=2),
-                    ) as resp:
-                        if resp.status == 200:
-                            data = await resp.json()
-                            if "result" in data and data["result"]:
-                                coinbasevalue = data["result"].get("coinbasevalue", 0)
-                                lcn_reward = coinbasevalue / 1e8
-                                logger.debug(
-                                    f"LCN block reward: {lcn_reward} coins (coinbasevalue: {coinbasevalue})"
-                                )
+                    from ..rpc.lcn import getblocktemplate as lcn_getblocktemplate
+
+                    lcn_url = settings.aux_url
+                    if lcn_url:
+                        result = await lcn_getblocktemplate(session, lcn_url)
+
+                        if result and "result" in result and result["result"]:
+                            coinbasevalue = result["result"].get("coinbasevalue", 0)
+                            lcn_reward = coinbasevalue / 1e8
+                            logger.debug(
+                                f"LCN block reward: {lcn_reward} coins (coinbasevalue: {coinbasevalue})"
+                            )
                 except Exception as e:
                     logger.warning(f"Could not fetch LCN block reward: {e}")
 

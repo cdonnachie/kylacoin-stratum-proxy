@@ -84,3 +84,4 @@ tmp/
 temp/
 *.tmp
 data/vardiff_state.json
+cleanup_confirmations.py

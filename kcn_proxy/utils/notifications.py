@@ -303,3 +303,178 @@ class NotificationManager:
                     )
 
         logger.info("Telegram notification sent for miner %s", status.lower())
+
+    async def notify_block_confirmed(
+        self,
+        chain: str,
+        height: int,
+        block_hash: str,
+        confirmations: int,
+        worker: str,
+    ):
+        """Send notifications for block reaching 100 confirmations (spendable)"""
+
+        # Try Discord webhook
+        if self.discord_webhook:
+            try:
+                await self._send_discord_block_confirmed(
+                    chain, height, block_hash, confirmations, worker
+                )
+            except Exception as e:
+                logger.error("Discord confirmation notification failed: %s", e)
+
+        # Try Telegram
+        if self.telegram_bot_token and self.telegram_chat_id:
+            try:
+                await self._send_telegram_block_confirmed(
+                    chain, height, block_hash, confirmations, worker
+                )
+            except Exception as e:
+                logger.error("Telegram confirmation notification failed: %s", e)
+
+    async def notify_block_orphaned(
+        self,
+        chain: str,
+        height: int,
+        block_hash: str,
+        worker: str,
+    ):
+        """Send notifications for orphaned blocks"""
+
+        # Try Discord webhook
+        if self.discord_webhook:
+            try:
+                await self._send_discord_block_orphaned(
+                    chain, height, block_hash, worker
+                )
+            except Exception as e:
+                logger.error("Discord orphan notification failed: %s", e)
+
+        # Try Telegram
+        if self.telegram_bot_token and self.telegram_chat_id:
+            try:
+                await self._send_telegram_block_orphaned(
+                    chain, height, block_hash, worker
+                )
+            except Exception as e:
+                logger.error("Telegram orphan notification failed: %s", e)
+
+    async def _send_discord_block_confirmed(
+        self,
+        chain: str,
+        height: int,
+        block_hash: str,
+        confirmations: int,
+        worker: str,
+    ):
+        """Send Discord notification for block reaching 100 confirmations"""
+
+        embed = {
+            "title": f"✓ {chain} Block CONFIRMED (Spendable)",
+            "color": 65280,  # Green
+            "fields": [
+                {"name": "Height", "value": str(height), "inline": True},
+                {"name": "Confirmations", "value": str(confirmations), "inline": True},
+                {"name": "Block Hash", "value": f"`{block_hash[:16]}...`"},
+                {"name": "Worker", "value": f"`{worker}`"},
+                {"name": "Timestamp", "value": datetime.now().isoformat()},
+            ],
+        }
+
+        await self._post_discord_embed(embed)
+        logger.info(
+            "%s block %d confirmed with %d confirmations", chain, height, confirmations
+        )
+
+    async def _send_discord_block_orphaned(
+        self,
+        chain: str,
+        height: int,
+        block_hash: str,
+        worker: str,
+    ):
+        """Send Discord notification for orphaned block"""
+
+        embed = {
+            "title": f"🚫 {chain} Block ORPHANED",
+            "color": 16711680,  # Red
+            "fields": [
+                {"name": "Height", "value": str(height), "inline": True},
+                {"name": "Status", "value": "Not in main chain", "inline": True},
+                {"name": "Block Hash", "value": f"`{block_hash[:16]}...`"},
+                {"name": "Worker", "value": f"`{worker}`"},
+                {"name": "Timestamp", "value": datetime.now().isoformat()},
+            ],
+        }
+
+        await self._post_discord_embed(embed)
+        logger.warning("%s block %d marked as orphaned", chain, height)
+
+    async def _send_telegram_block_confirmed(
+        self,
+        chain: str,
+        height: int,
+        block_hash: str,
+        confirmations: int,
+        worker: str,
+    ):
+        """Send Telegram notification for block reaching 100 confirmations"""
+
+        message = f"✓ *{chain} Block CONFIRMED (Spendable)*\n\n"
+        message += f"*Height:* `{height}`\n"
+        message += f"*Confirmations:* `{confirmations}`\n"
+        message += f"*Block Hash:* `{block_hash[:16]}...`\n"
+        message += f"*Worker:* `{worker}`\n"
+        message += f"*Time:* `{datetime.now().isoformat()}`"
+
+        url = f"https://api.telegram.org/bot{self.telegram_bot_token}/sendMessage"
+        payload = {
+            "chat_id": self.telegram_chat_id,
+            "text": message,
+            "parse_mode": "Markdown",
+            "disable_web_page_preview": True,
+        }
+
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=payload) as response:
+                if response.status != 200:
+                    error_text = await response.text()
+                    raise Exception(
+                        f"Telegram API failed: {response.status} - {error_text}"
+                    )
+
+        logger.info("Telegram notification sent for %s block confirmed", chain)
+
+    async def _send_telegram_block_orphaned(
+        self,
+        chain: str,
+        height: int,
+        block_hash: str,
+        worker: str,
+    ):
+        """Send Telegram notification for orphaned block"""
+
+        message = f"🚫 *{chain} Block ORPHANED*\n\n"
+        message += f"*Height:* `{height}`\n"
+        message += f"*Status:* Not in main chain\n"
+        message += f"*Block Hash:* `{block_hash[:16]}...`\n"
+        message += f"*Worker:* `{worker}`\n"
+        message += f"*Time:* `{datetime.now().isoformat()}`"
+
+        url = f"https://api.telegram.org/bot{self.telegram_bot_token}/sendMessage"
+        payload = {
+            "chat_id": self.telegram_chat_id,
+            "text": message,
+            "parse_mode": "Markdown",
+            "disable_web_page_preview": True,
+        }
+
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=payload) as response:
+                if response.status != 200:
+                    error_text = await response.text()
+                    raise Exception(
+                        f"Telegram API failed: {response.status} - {error_text}"
+                    )
+
+        logger.warning("Telegram notification sent for %s block orphaned", chain)

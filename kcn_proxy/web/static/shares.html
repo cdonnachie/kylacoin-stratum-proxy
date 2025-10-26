@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Shares Live Feed - KCN-LCN Mining Dashboard</title>
+    <link rel="stylesheet" href="/static/dashboard.css" />
+    <link rel="stylesheet" href="/static/shares.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>
+        <img
+          src="/static/kylacoin-logo.png"
+          alt="KCN"
+          class="logo"
+          onerror="this.style.display='none'"
+        />
+        Shares Live Feed
+        <img
+          src="/static/lyncoin-logo.png"
+          alt="LCN"
+          class="logo"
+          onerror="this.style.display='none'"
+        />
+      </h1>
+
+      <nav class="dashboard-nav">
+        <a href="/" class="nav-link">Overview</a>
+        <a href="/shares" class="nav-link active">Live Shares</a>
+      </nav>
+
+      <div class="shares-container">
+        <!-- Filters Panel -->
+        <div class="filters-panel">
+          <div class="filter-group">
+            <label for="worker-filter">Worker:</label>
+            <input
+              type="text"
+              id="worker-filter"
+              placeholder="All workers"
+              style="min-width: 150px"
+            />
+          </div>
+          <div class="filter-group">
+            <label>
+              <input type="checkbox" id="accepted-only" />
+              Accepted Only
+            </label>
+          </div>
+          <div class="filter-group">
+            <label>
+              <input type="checkbox" id="blocks-only" />
+              Blocks Only
+            </label>
+          </div>
+          <div class="filter-group" style="margin-left: auto">
+            <button onclick="applyFilters()">Apply Filters</button>
+          </div>
+        </div>
+
+        <!-- Statistics Panel -->
+        <div class="stats-panel" id="stats-panel">
+          <div class="stat-item">
+            <div class="label">Total Shares</div>
+            <div class="value" id="stat-total">0</div>
+          </div>
+          <div class="stat-item">
+            <div class="label">Accepted</div>
+            <div class="value" id="stat-accepted" style="color: #05a532">0</div>
+          </div>
+          <div class="stat-item">
+            <div class="label">Rejected</div>
+            <div class="value" id="stat-rejected" style="color: #ff6464">0</div>
+          </div>
+          <div class="stat-item">
+            <div class="label">Blocks Found</div>
+            <div class="value" id="stat-blocks" style="color: #ffd700">0</div>
+          </div>
+          <div class="stat-item">
+            <div class="label">Connected Workers</div>
+            <div class="value" id="stat-clients">0</div>
+          </div>
+        </div>
+
+        <!-- Shares Table -->
+        <div class="shares-table-wrapper">
+          <div class="shares-table-header">
+            <h3>
+              <span class="live-indicator" id="live-indicator"></span>Recent
+              Shares
+            </h3>
+          </div>
+          <table class="shares-table" id="shares-table">
+            <thead>
+              <tr>
+                <th style="width: 120px">Time</th>
+                <th style="width: 150px">Worker</th>
+                <th style="width: 120px">Share Difficulty</th>
+                <th style="width: 130px">KCN Target</th>
+                <th style="width: 130px">LCN Target</th>
+                <th style="width: 100px">Status</th>
+                <th style="width: 100px">Software</th>
+              </tr>
+            </thead>
+            <tbody id="shares-tbody">
+              <tr>
+                <td colspan="6" class="no-shares">Waiting for shares...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="update-time">
+        Last updated: <span id="last-update">Never</span>
+      </div>
+    </div>
+
+    <script>
+      // Theme management - sync with main dashboard theme (same as index.html)
+      // Insert floating theme toggle at runtime (ensures CSS loaded)
+      (function createFloatingThemeToggle() {
+        const fab = document.createElement("button");
+        fab.id = "theme-toggle";
+        fab.className = "theme-toggle-fab";
+        fab.innerHTML =
+          '<span class="icon" aria-hidden="true">🌙</span><span class="label">Light Mode</span>';
+        document.body.appendChild(fab);
+      })();
+
+      (function initThemeToggle() {
+        const btn = document.getElementById("theme-toggle");
+        if (!btn) return;
+        const root = document.documentElement;
+        const stored = localStorage.getItem("dashboardTheme");
+
+        function setLabel() {
+          const isLight = root.getAttribute("data-theme") === "light";
+          const iconSpan = btn.querySelector(".icon");
+          if (isLight) {
+            btn
+              .querySelector(".label")
+              ?.replaceChildren(document.createTextNode("Dark Mode"));
+            if (iconSpan) iconSpan.textContent = "☀️";
+          } else {
+            btn
+              .querySelector(".label")
+              ?.replaceChildren(document.createTextNode("Light Mode"));
+            if (iconSpan) iconSpan.textContent = "🌙";
+          }
+        }
+
+        if (stored === "light") {
+          root.setAttribute("data-theme", "light");
+        } else {
+          root.removeAttribute("data-theme");
+        }
+        setLabel();
+
+        btn.addEventListener("click", () => {
+          const isLight = root.getAttribute("data-theme") === "light";
+          // Add fade class for cross-fade effect
+          document.body.classList.remove("theme-fade");
+          void document.body.offsetWidth; // force reflow
+          document.body.classList.add("theme-fade");
+          if (isLight) {
+            root.removeAttribute("data-theme");
+            localStorage.setItem("dashboardTheme", "dark");
+          } else {
+            root.setAttribute("data-theme", "light");
+            localStorage.setItem("dashboardTheme", "light");
+          }
+          setLabel();
+        });
+      })();
+
+      // Watch for theme changes from main dashboard
+      window.addEventListener("storage", function (e) {
+        if (e.key === "dashboardTheme") {
+          const root = document.documentElement;
+          const newTheme = e.newValue || "dark";
+          if (newTheme === "light") {
+            root.setAttribute("data-theme", "light");
+          } else {
+            root.removeAttribute("data-theme");
+          }
+          updateThemeButtonIcon(newTheme);
+        }
+      });
+
+      function updateThemeButtonIcon(theme) {
+        const btn = document.getElementById("theme-toggle");
+        if (btn) {
+          const iconSpan = btn.querySelector(".icon");
+          const labelSpan = btn.querySelector(".label");
+          if (theme === "light") {
+            if (iconSpan) iconSpan.textContent = "☀️";
+            if (labelSpan) labelSpan.textContent = "Dark Mode";
+          } else {
+            if (iconSpan) iconSpan.textContent = "🌙";
+            if (labelSpan) labelSpan.textContent = "Light Mode";
+          }
+        }
+      }
+
+      // State
+      let ws = null;
+      let shares = [];
+      let hasMergeMiners = false; // Track if any shares have LCN mining
+      let currentFilters = {
+        worker: "",
+        acceptedOnly: false,
+        blocksOnly: false,
+      };
+
+      // Limit in-memory shares to prevent memory bloat (keep last 500 shares in memory)
+      const MAX_SHARES_IN_MEMORY = 500;
+
+      // Format timestamp
+      function formatTime(timestamp) {
+        const date = new Date(timestamp * 1000);
+        return date.toLocaleTimeString();
+      }
+
+      // Calculate time ago
+      function timeAgo(timestamp) {
+        const now = Math.floor(Date.now() / 1000);
+        const diff = now - timestamp;
+
+        if (diff < 60) return `${diff}s ago`;
+        if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+        if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+        return `${Math.floor(diff / 86400)}d ago`;
+      }
+
+      // Format difficulty with threshold
+      function formatDifficulty(value) {
+        if (value >= 1000000) return (value / 1000000).toFixed(2) + "M";
+        if (value >= 1000) return (value / 1000).toFixed(2) + "K";
+        return value.toFixed(8);
+      }
+
+      // Get difficulty ratio class
+      function getDifficultyRatioClass(ratio) {
+        if (ratio >= 0.9) return "good";
+        if (ratio >= 0.5) return "warning";
+        return "danger";
+      }
+
+      // Toggle LCN column visibility
+      function updateColumnVisibility() {
+        const table = document.getElementById("shares-table");
+        const headers = table.querySelectorAll("th");
+        const rows = table.querySelectorAll("tbody tr");
+
+        // LCN Target is the 4th column (index 4 in 0-indexed: Time, Worker, Share Diff, KCN, LCN)
+        const lcnColumnIndex = 4;
+
+        if (hasMergeMiners) {
+          // Show LCN column
+          if (headers[lcnColumnIndex])
+            headers[lcnColumnIndex].style.display = "";
+          rows.forEach((row) => {
+            const cells = row.querySelectorAll("td");
+            if (cells[lcnColumnIndex]) cells[lcnColumnIndex].style.display = "";
+          });
+        } else {
+          // Hide LCN column
+          if (headers[lcnColumnIndex])
+            headers[lcnColumnIndex].style.display = "none";
+          rows.forEach((row) => {
+            const cells = row.querySelectorAll("td");
+            if (cells[lcnColumnIndex])
+              cells[lcnColumnIndex].style.display = "none";
+          });
+        }
+      }
+
+      // Add share to table
+      function addShareToTable(share) {
+        const tbody = document.getElementById("shares-tbody");
+
+        // Clear "waiting" message
+        if (
+          tbody.children.length === 1 &&
+          tbody.children[0].textContent.includes("Waiting")
+        ) {
+          tbody.innerHTML = "";
+        }
+
+        // Create row
+        const row = document.createElement("tr");
+        row.className = `share-row ${share.is_block ? "block" : ""} ${
+          !share.accepted ? "rejected" : ""
+        }`;
+
+        // Calculate ratios first
+        const kcnRatio =
+          share.kcn_difficulty > 0
+            ? share.share_difficulty / share.kcn_difficulty
+            : 0;
+        const lcnRatio =
+          share.lcn_difficulty > 0
+            ? share.share_difficulty / share.lcn_difficulty
+            : 0;
+
+        const statusLabel = share.is_block
+          ? "BLOCK"
+          : share.accepted
+          ? "Accepted"
+          : "Rejected";
+        const statusClass = share.is_block
+          ? "status-block"
+          : share.accepted
+          ? "status-accepted"
+          : "status-rejected";
+
+        // Determine which chain(s) the block was found on
+        let blockChains = [];
+        if (share.is_block) {
+          // Infer from ratios which chains the block was for
+          if (kcnRatio >= 1.0) blockChains.push("KCN");
+          if (lcnRatio >= 1.0) blockChains.push("LCN");
+        }
+
+        // Create time cell that will be updated dynamically
+        const timeCell = document.createElement("td");
+        timeCell.className = "time-ago";
+        timeCell.textContent = timeAgo(share.timestamp);
+        timeCell.dataset.timestamp = share.timestamp;
+
+        // Detect if this is merge mining (has non-zero LCN difficulty)
+        if (share.lcn_difficulty > 0 && !hasMergeMiners) {
+          hasMergeMiners = true;
+          updateColumnVisibility();
+        }
+
+        row.innerHTML = `
+          <td class="worker-name">${escapeHtml(share.worker)}</td>
+          <td style="font-size: 0.9em; text-align: center">${formatDifficulty(
+            share.share_difficulty
+          )}</td>
+          <td class="difficulty-ratio" style="font-size: 0.9em">
+            Target: ${formatDifficulty(share.kcn_difficulty)}<br/>
+            Ratio: <span class="${getDifficultyRatioClass(
+              kcnRatio
+            )}">${kcnRatio.toFixed(3)}x</span>
+          </td>
+          <td class="difficulty-ratio" style="font-size: 0.9em">
+            Target: ${formatDifficulty(share.lcn_difficulty)}<br/>
+            Ratio: <span class="${getDifficultyRatioClass(
+              lcnRatio
+            )}">${lcnRatio.toFixed(3)}x</span>
+          </td>
+          <td>
+            <span class="status-badge ${statusClass}">
+              ${statusLabel}${
+          blockChains.length > 0 ? ` (${blockChains.join(" + ")})` : ""
+        }
+            </span>
+          </td>
+          <td>${escapeHtml(share.miner_software)}</td>
+        `;
+
+        // Insert time cell at the beginning
+        timeCell.style.fontSize = "0.9em";
+        row.insertBefore(timeCell, row.firstChild);
+
+        // Insert at top
+        tbody.insertBefore(row, tbody.firstChild);
+
+        // Keep only last 100 rows
+        while (tbody.children.length > 100) {
+          tbody.removeChild(tbody.lastChild);
+        }
+
+        updateLastUpdateTime();
+      }
+
+      // Escape HTML
+      function escapeHtml(text) {
+        const map = {
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#039;",
+        };
+        return text.replace(/[&<>"']/g, (m) => map[m]);
+      }
+
+      // Update all time cells to show current elapsed time
+      function updateTimeCells() {
+        const timeCells = document.querySelectorAll(
+          "td.time-ago[data-timestamp]"
+        );
+        timeCells.forEach((cell) => {
+          const timestamp = parseInt(cell.dataset.timestamp);
+          cell.textContent = timeAgo(timestamp);
+        });
+      }
+
+      // Update statistics
+      async function updateStats() {
+        try {
+          const response = await fetch("/api/shares/stats");
+          const stats = await response.json();
+
+          document.getElementById("stat-total").textContent =
+            stats.total_shares;
+          document.getElementById("stat-accepted").textContent =
+            stats.accepted_shares;
+          document.getElementById("stat-rejected").textContent =
+            stats.rejected_shares;
+          document.getElementById("stat-blocks").textContent = stats.blocks;
+          document.getElementById("stat-clients").textContent =
+            stats.connected_workers;
+        } catch (e) {
+          console.error("Failed to fetch stats:", e);
+        }
+      }
+
+      // Apply filters
+      async function applyFilters() {
+        const worker = document.getElementById("worker-filter").value.trim();
+        const acceptedOnly = document.getElementById("accepted-only").checked;
+        const blocksOnly = document.getElementById("blocks-only").checked;
+
+        currentFilters = { worker, acceptedOnly, blocksOnly };
+
+        try {
+          const params = new URLSearchParams({
+            limit: 100,
+            offset: 0,
+          });
+
+          if (worker) params.append("worker", worker);
+          if (acceptedOnly) params.append("accepted_only", "true");
+          if (blocksOnly) params.append("blocks_only", "true");
+
+          const response = await fetch(`/api/shares?${params}`);
+          const data = await response.json();
+
+          const tbody = document.getElementById("shares-tbody");
+          tbody.innerHTML = "";
+
+          if (data.shares.length === 0) {
+            tbody.innerHTML =
+              '<tr><td colspan="7" class="no-shares">No shares match filters</td></tr>';
+          } else {
+            // Reverse to show newest first
+            data.shares.reverse().forEach((share) => {
+              const row = document.createElement("tr");
+              row.className = `share-row ${share.is_block ? "block" : ""} ${
+                !share.accepted ? "rejected" : ""
+              }`;
+
+              const statusLabel = share.is_block
+                ? "BLOCK"
+                : share.accepted
+                ? "Accepted"
+                : "Rejected";
+              const statusClass = share.is_block
+                ? "status-block"
+                : share.accepted
+                ? "status-accepted"
+                : "status-rejected";
+
+              // Create time cell with data attribute for dynamic updates
+              const timeCell = document.createElement("td");
+              timeCell.className = "time-ago";
+              timeCell.textContent = timeAgo(share.timestamp);
+              timeCell.dataset.timestamp = share.timestamp;
+              timeCell.style.fontSize = "0.9em";
+
+              // Calculate ratios
+              const kcnRatio =
+                share.kcn_difficulty > 0
+                  ? share.share_difficulty / share.kcn_difficulty
+                  : 0;
+              const lcnRatio =
+                share.lcn_difficulty > 0
+                  ? share.share_difficulty / share.lcn_difficulty
+                  : 0;
+
+              // Determine which chain(s) the block was found on
+              let blockChains = [];
+              if (share.is_block) {
+                if (kcnRatio >= 1.0) blockChains.push("KCN");
+                if (lcnRatio >= 1.0) blockChains.push("LCN");
+              }
+
+              // Detect merge mining
+              if (share.lcn_difficulty > 0 && !hasMergeMiners) {
+                hasMergeMiners = true;
+              }
+
+              row.innerHTML = `
+                <td class="worker-name">${escapeHtml(share.worker)}</td>
+                <td style="font-size: 0.9em; text-align: center">${formatDifficulty(
+                  share.share_difficulty
+                )}</td>
+                <td class="difficulty-ratio" style="font-size: 0.9em">
+                  Target: ${formatDifficulty(share.kcn_difficulty)}<br/>
+                  Ratio: <span class="${getDifficultyRatioClass(
+                    kcnRatio
+                  )}">${kcnRatio.toFixed(3)}x</span>
+                </td>
+                <td class="difficulty-ratio" style="font-size: 0.9em">
+                  Target: ${formatDifficulty(share.lcn_difficulty)}<br/>
+                  Ratio: <span class="${getDifficultyRatioClass(
+                    lcnRatio
+                  )}">${lcnRatio.toFixed(3)}x</span>
+                </td>
+                <td>
+                  <span class="status-badge ${statusClass}">
+                    ${statusLabel}${
+                blockChains.length > 0 ? ` (${blockChains.join(" + ")})` : ""
+              }
+                  </span>
+                </td>
+                <td>${escapeHtml(share.miner_software)}</td>
+              `;
+
+              // Insert time cell at the beginning
+              row.insertBefore(timeCell, row.firstChild);
+              tbody.appendChild(row);
+            });
+
+            // Update column visibility after loading all shares
+            updateColumnVisibility();
+          }
+
+          updateLastUpdateTime();
+        } catch (e) {
+          console.error("Failed to apply filters:", e);
+        }
+      }
+
+      // Connect WebSocket
+      function connectWebSocket() {
+        const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+        const wsUrl = `${protocol}//${window.location.host}/ws/shares`;
+
+        try {
+          ws = new WebSocket(wsUrl);
+        } catch (e) {
+          console.error("Failed to create WebSocket:", e);
+          setTimeout(connectWebSocket, 3000);
+          return;
+        }
+
+        ws.onopen = () => {
+          console.log("Connected to share feed");
+          // Update live indicator to green
+          const indicator = document.getElementById("live-indicator");
+          if (indicator) {
+            indicator.style.background = "#05a532";
+            indicator.style.animation = "pulse 1s infinite";
+          }
+          updateStats();
+          // Refresh table after connection
+          applyFilters();
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+
+            // Skip ping messages
+            if (data.type === "ping") {
+              console.debug("Received ping");
+              return;
+            }
+
+            // Handle share data
+            if (data.id !== undefined && data.timestamp !== undefined) {
+              shares.push(data);
+
+              // Keep only last 500 shares in memory to prevent bloat
+              if (shares.length > MAX_SHARES_IN_MEMORY) {
+                shares.shift();
+              }
+
+              // Only add if passes current filters
+              if (passesFilters(data)) {
+                addShareToTable(data);
+              }
+
+              // Update stats periodically
+              if (shares.length % 10 === 0) {
+                updateStats();
+              }
+            }
+          } catch (e) {
+            console.error("Failed to parse message:", e, event.data);
+          }
+        };
+
+        ws.onerror = (error) => {
+          console.error("WebSocket error:", error);
+        };
+
+        ws.onclose = () => {
+          console.log(
+            "Disconnected from share feed, reconnecting in 3 seconds..."
+          );
+          // Update live indicator
+          const indicator = document.getElementById("live-indicator");
+          if (indicator) {
+            indicator.style.background = "#ff6464";
+          }
+          // Reconnect after 3 seconds
+          setTimeout(connectWebSocket, 3000);
+        };
+      }
+
+      // Check if share passes current filters
+      function passesFilters(share) {
+        if (currentFilters.worker && share.worker !== currentFilters.worker) {
+          return false;
+        }
+        if (currentFilters.acceptedOnly && !share.accepted) {
+          return false;
+        }
+        if (currentFilters.blocksOnly && !share.is_block) {
+          return false;
+        }
+        return true;
+      }
+
+      // Update last update time
+      function updateLastUpdateTime() {
+        const now = new Date();
+        document.getElementById("last-update").textContent =
+          now.toLocaleTimeString();
+      }
+
+      // Setup event listeners
+      document
+        .getElementById("worker-filter")
+        .addEventListener("keypress", (e) => {
+          if (e.key === "Enter") {
+            applyFilters();
+          }
+        });
+
+      // Initial setup
+      window.addEventListener("load", () => {
+        // Load historical shares from database/buffer first (if available)
+        applyFilters();
+        // Connect to WebSocket for real-time updates
+        connectWebSocket();
+        updateStats();
+        // Update stats every 5 seconds
+        setInterval(updateStats, 5000);
+        // Update time displays every second
+        setInterval(updateTimeCells, 1000);
+      });
+
+      // Back link
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          window.location.href = "/";
+        }
+      });
+    </script>
+  </body>
+</html>
