@@ -10,7 +10,7 @@ A stratum mining proxy for Kylacoin with optional Lyncoin merged mining (AuxPoW)
 - ✅ **Notifications**: Discord and Telegram alerts for blocks found and miner connections
 - ✅ **Web Dashboard** _(optional)_: Real-time monitoring of miners, hashrates, and blocks
 - ✅ **SQLite Database** _(optional)_: Historical statistics and block history
-- ✅ **Docker Ready**: Complete docker-compose setup with health checks
+- ✅ **Docker Ready**: Complete docker compose setup with health checks
 - ✅ **Flexible Difficulty**: Configurable share difficulty for any hashrate
 
 ## Quick Start
@@ -178,7 +178,7 @@ At typical difficulties (KCN: ~0.008, LCN: ~0.007):
 
 ```bash
 # Docker
-docker-compose logs -f stratum-proxy
+docker compose logs -f stratum-proxy
 
 # Native
 # Watch console output
@@ -230,47 +230,6 @@ kcn_proxy/
 ## License
 
 MIT License - See LICENSE file
-
-A Docker Compose setup for running a stratum proxy that enables mining Kylacoin (parent chain) and Lyncoin (auxiliary chain) simultaneously using AuxPoW.
-
-## Quick Start
-
-1. **Place the Linux binaries**:
-
-   - Copy **Linux x86_64** `kylacoind` and `kylacoin-cli` to `binaries/kylacoin/`
-   - Copy **Linux x86_64** `lyncoind` and `lyncoin-cli` to `binaries/lyncoin/`
-
-   ⚠️ **Important**: Use Linux binaries only (not Windows .exe or macOS binaries)
-
-2. **Update the environment file**:
-
-   ```bash
-   cp .env.example .env
-   # Edit .env with your settings
-   ```
-
-3. **Configure wallet addresses** (optional):
-   Edit the `.env` file and set:
-
-   - `LCN_WALLET_ADDRESS`: Your Lyncoin address for dual-chain mining (leave blank for Kylacoin-only mining)
-   - Update RPC credentials for security
-
-4. **Start the services**:
-
-   ```bash
-   docker compose up -d
-   ```
-
-5. **Check logs**:
-
-   ```bash
-   docker compose logs -f stratum-proxy
-   ```
-
-6. **Connect your miner**:
-   - Point your miner to `localhost:54321`
-   - Use your Kylacoin address as username
-   - Any password
 
 ## Configuration
 
@@ -432,7 +391,7 @@ If you prefer to run the proxy directly with Python instead of using Docker:
    **For localhost testing only:**
 
    ```bash
-   python kcn-lcn-stratum-proxy.py \
+   python -m kcn_proxy.run \
      --ip=127.0.0.1 \
      --port=54321 \
      --rpcuser=your_kcn_rpc_user \
@@ -451,7 +410,7 @@ If you prefer to run the proxy directly with Python instead of using Docker:
    **For HiveOS rigs or remote miners:**
 
    ```bash
-   python kcn-lcn-stratum-proxy.py \
+   python -m kcn_proxy.run \
      --ip=0.0.0.0 \
      --port=54321 \
      --rpcuser=your_kcn_rpc_user \
@@ -475,11 +434,11 @@ export LCN_WALLET_ADDRESS=your_lyncoin_address
 export PROXY_SIGNATURE=/my-custom-proxy/
 
 # Run with minimal arguments (reads from environment)
-python kcn-lcn-stratum-proxy.py \
+python -m kcn_proxy.run \
   --rpcuser=$KCN_RPC_USER \
   --rpcpass=$KCN_RPC_PASS \
   --aux-rpcuser=$LCN_RPC_USER \
-  --aux-rpcpass=$LCN_RPC_PASS \
+  --aux-rpcpass=$LCN_RCP_PASS \
   --aux-address=$LCN_WALLET_ADDRESS \
   --use-easier-target \
   --verbose
@@ -503,7 +462,7 @@ The `--ip` parameter controls which network interface the proxy binds to:
 
 #### Available Options
 
-Run `python kcn-lcn-stratum-proxy.py --help` to see all available options:
+Run `python -m kcn_proxy.run --help` to see all available options:
 
 - `--ip`: IP address to bind proxy server on (default: 127.0.0.1)
 - `--port`: Stratum port (default: 54321)
