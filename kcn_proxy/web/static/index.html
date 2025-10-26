@@ -912,13 +912,15 @@
           "
         >
           <button
-            class="toolbar-btn"
+            id="difficulty-24h-btn"
+            class="toolbar-btn active-chart-btn"
             onclick="updateDifficultyChart(24)"
             title="Last 24 hours"
           >
             24h
           </button>
           <button
+            id="difficulty-7d-btn"
             class="toolbar-btn"
             onclick="updateDifficultyChart(168)"
             title="Last 7 days"
@@ -926,6 +928,7 @@
             7d
           </button>
           <button
+            id="difficulty-30d-btn"
             class="toolbar-btn"
             onclick="updateDifficultyChart(720)"
             title="Last 30 days"
@@ -968,18 +971,28 @@
           "
         >
           <button
-            class="toolbar-btn"
+            id="hashrate-24h-btn"
+            class="toolbar-btn active-chart-btn"
             onclick="updateHashrateChart(24)"
             title="Last 24 hours"
           >
             24h
           </button>
           <button
+            id="hashrate-7d-btn"
             class="toolbar-btn"
             onclick="updateHashrateChart(168)"
             title="Last 7 days"
           >
             7d
+          </button>
+          <button
+            id="hashrate-30d-btn"
+            class="toolbar-btn"
+            onclick="updateHashrateChart(720)"
+            title="Last 30 days"
+          >
+            30d
           </button>
         </div>
         <div
@@ -2840,6 +2853,22 @@
             localStorage.setItem("dashboardTheme", "light");
           }
           setLabel();
+
+          // Refresh charts with new colors
+          setTimeout(() => {
+            if (
+              currentDifficultyHours &&
+              typeof updateDifficultyChart === "function"
+            ) {
+              updateDifficultyChart(currentDifficultyHours);
+            }
+            if (
+              currentHashrateHours &&
+              typeof updateHashrateChart === "function"
+            ) {
+              updateHashrateChart(currentHashrateHours);
+            }
+          }, 300);
         });
       })();
 
@@ -2858,14 +2887,85 @@
           kcnColor: isDark ? "#ff1493" : "#d91e63",
           lcnColor: isDark ? "#ff8c00" : "#f57c00",
           gridColor: isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)",
-          textColor: isDark ? "#e0e0e0" : "#333333",
+          textColor: isDark ? "#e0e0e0" : "#000000",
+          legendColor: isDark ? "#ffffff" : "#000000",
           backgroundColor: isDark ? "#1a1a1a" : "#ffffff",
         };
+      }
+
+      // Update active button styling for chart time period
+      function updateChartButtonState(chartType, hours) {
+        const buttons = document.querySelectorAll(
+          `#${chartType}-24h-btn, #${chartType}-7d-btn, #${chartType}-30d-btn`
+        );
+        buttons.forEach((btn) => btn.classList.remove("active-chart-btn"));
+
+        let activeBtn;
+        if (hours === 24) {
+          activeBtn = document.getElementById(`${chartType}-24h-btn`);
+        } else if (hours === 168) {
+          activeBtn = document.getElementById(`${chartType}-7d-btn`);
+        } else if (hours === 720) {
+          activeBtn = document.getElementById(`${chartType}-30d-btn`);
+        }
+        if (activeBtn) activeBtn.classList.add("active-chart-btn");
+      }
+
+      // Get point colors based on block count (color coding for visualization)
+      function getPointColorsAndSizes(sortedTimestamps, kcnBlocks, lcnBlocks) {
+        const colors = [];
+        const sizes = [];
+        const isDark =
+          !document.documentElement.getAttribute("data-theme") ||
+          document.documentElement.getAttribute("data-theme") === "dark";
+
+        sortedTimestamps.forEach((timestamp, index) => {
+          const nextTimestamp =
+            index < sortedTimestamps.length - 1
+              ? sortedTimestamps[index + 1]
+              : timestamp + 3600; // assume 1 hour interval if last point
+
+          // Count blocks found in this time window
+          const kcnBlocksInWindow = kcnBlocks.filter(
+            (b) => b.timestamp >= timestamp && b.timestamp < nextTimestamp
+          ).length;
+          const lcnBlocksInWindow = lcnBlocks.filter(
+            (b) => b.timestamp >= timestamp && b.timestamp < nextTimestamp
+          ).length;
+          const totalBlocks = kcnBlocksInWindow + lcnBlocksInWindow;
+
+          // Determine color and size based on block count
+          let color;
+          let size;
+          if (totalBlocks === 0) {
+            // No blocks - gray, small
+            color = isDark ? "#555555" : "#999999";
+            size = 2;
+          } else if (totalBlocks === 1) {
+            // 1 block - light green, medium
+            color = isDark ? "#66dd77" : "#22bb44";
+            size = 5;
+          } else if (totalBlocks <= 3) {
+            // 2-3 blocks - medium green, larger
+            color = isDark ? "#44dd55" : "#05a532";
+            size = 7;
+          } else {
+            // 4+ blocks - bright green, largest
+            color = isDark ? "#22ff44" : "#00aa00";
+            size = 9;
+          }
+
+          colors.push(color);
+          sizes.push(size);
+        });
+
+        return { colors, sizes };
       }
 
       async function updateDifficultyChart(hours) {
         currentDifficultyHours = hours;
         const colors = getChartColors();
+        updateChartButtonState("difficulty", hours);
 
         try {
           // Fetch KCN difficulty history
@@ -2881,8 +2981,19 @@
           const lcnData = await lcnRes.json();
 
           // Prepare chart data
-          const kcnPoints = kcnData.data || [];
-          const lcnPoints = lcnData.data || [];
+          let kcnPoints = kcnData.data || [];
+          let lcnPoints = lcnData.data || [];
+
+          // Downsample data for longer time ranges to reduce visual clutter
+          const maxPoints = 100; // Target number of points on the chart
+          if (kcnPoints.length > maxPoints) {
+            const step = Math.ceil(kcnPoints.length / maxPoints);
+            kcnPoints = kcnPoints.filter((_, i) => i % step === 0);
+          }
+          if (lcnPoints.length > maxPoints) {
+            const step = Math.ceil(lcnPoints.length / maxPoints);
+            lcnPoints = lcnPoints.filter((_, i) => i % step === 0);
+          }
 
           // Get all unique timestamps and sort
           const timestamps = new Set();
@@ -2924,6 +3035,63 @@
             (ts) => lcnLookup[ts] || null
           );
 
+          // Fetch block data for color coding
+          let kcnBlocks = [];
+          let lcnBlocks = [];
+          try {
+            const kcnBlocksResp = await fetch(
+              `/api/blocks/KCN?limit=1000&sort=timestamp&order=desc`
+            );
+            if (kcnBlocksResp.ok) {
+              const kcnData = await kcnBlocksResp.json();
+              kcnBlocks = kcnData.blocks || [];
+            }
+
+            const lcnBlocksResp = await fetch(
+              `/api/blocks/LCN?limit=1000&sort=timestamp&order=desc`
+            );
+            if (lcnBlocksResp.ok) {
+              const lcnData = await lcnBlocksResp.json();
+              lcnBlocks = lcnData.blocks || [];
+            }
+          } catch (error) {
+            console.warn("Error fetching block data for chart colors:", error);
+          }
+
+          // Get color and size arrays based on block counts
+          const kcnPointData = getPointColorsAndSizes(
+            sortedTimestamps,
+            kcnBlocks,
+            []
+          );
+          const lcnPointData = getPointColorsAndSizes(
+            sortedTimestamps,
+            [],
+            lcnBlocks
+          );
+
+          // Helper to get block count for a timestamp
+          const getBlockCountForIndex = (index, chain) => {
+            const timestamp = sortedTimestamps[index];
+            const nextTimestamp =
+              index < sortedTimestamps.length - 1
+                ? sortedTimestamps[index + 1]
+                : timestamp + 3600;
+
+            const blocks =
+              chain === "kcn"
+                ? kcnBlocks.filter(
+                    (b) =>
+                      b.timestamp >= timestamp && b.timestamp < nextTimestamp
+                  )
+                : lcnBlocks.filter(
+                    (b) =>
+                      b.timestamp >= timestamp && b.timestamp < nextTimestamp
+                  );
+
+            return blocks.length;
+          };
+
           const ctx = document
             .getElementById("difficulty-chart")
             .getContext("2d");
@@ -2945,8 +3113,8 @@
                   borderWidth: 2,
                   fill: true,
                   tension: 0.4,
-                  pointRadius: 3,
-                  pointBackgroundColor: colors.kcnColor,
+                  pointRadius: kcnPointData.sizes,
+                  pointBackgroundColor: kcnPointData.colors,
                   pointBorderColor: colors.backgroundColor,
                   pointBorderWidth: 2,
                 },
@@ -2958,24 +3126,45 @@
                   borderWidth: 2,
                   fill: true,
                   tension: 0.4,
-                  pointRadius: 3,
-                  pointBackgroundColor: colors.lcnColor,
+                  pointRadius: lcnPointData.sizes,
+                  pointBackgroundColor: lcnPointData.colors,
                   pointBorderColor: colors.backgroundColor,
                   pointBorderWidth: 2,
                 },
               ],
             },
             options: {
+              color: colors.legendColor,
               responsive: true,
               maintainAspectRatio: false,
               plugins: {
                 legend: {
                   display: true,
                   labels: {
-                    color: colors.textColor,
+                    color: colors.legendColor,
                     usePointStyle: true,
                     padding: 20,
                     font: { size: 12 },
+                    generateLabels: function (chart) {
+                      // Generate legend labels with correct colors
+                      return chart.data.datasets.map((dataset, i) => ({
+                        text: dataset.label,
+                        fillStyle: dataset.label.includes("KCN")
+                          ? colors.kcnColor
+                          : colors.lcnColor,
+                        fontColor: colors.legendColor,
+                        hidden: chart.getDatasetMeta(i).hidden,
+                        datasetIndex: i,
+                        strokeStyle: "transparent",
+                        pointStyle: "circle",
+                      }));
+                    },
+                  },
+                  onClick: (e, legendItem, legend) => {
+                    const index = legendItem.datasetIndex;
+                    const meta = legend.chart.getDatasetMeta(index);
+                    meta.hidden = !meta.hidden;
+                    legend.chart.update();
                   },
                 },
                 filler: {
@@ -2991,6 +3180,17 @@
                       if (context.parsed.y !== null) {
                         label += context.parsed.y.toFixed(8);
                       }
+
+                      // Add block count
+                      const chain = context.dataset.label.includes("KCN")
+                        ? "kcn"
+                        : "lcn";
+                      const blockCount = getBlockCountForIndex(
+                        context.dataIndex,
+                        chain
+                      );
+                      label += ` • Blocks: ${blockCount}`;
+
                       return label;
                     },
                   },
@@ -3020,6 +3220,9 @@
               },
             },
           });
+          difficultyChart.options.plugins.legend.labels.color =
+            colors.legendColor;
+          difficultyChart.update("none");
         } catch (error) {
           console.error("Error updating difficulty chart:", error);
         }
@@ -3028,11 +3231,19 @@
       async function updateHashrateChart(hours) {
         currentHashrateHours = hours;
         const colors = getChartColors();
+        updateChartButtonState("hashrate", hours);
 
         try {
           const res = await fetch(`/api/hashrate-history?hours=${hours}`);
           const data = await res.json();
-          const points = data.data || [];
+          let points = data.data || [];
+
+          // Downsample data for longer time ranges to reduce visual clutter
+          const maxPoints = 100; // Target number of points on the chart
+          if (points.length > maxPoints) {
+            const step = Math.ceil(points.length / maxPoints);
+            points = points.filter((_, i) => i % step === 0);
+          }
 
           // Sort by timestamp
           points.sort((a, b) => a.timestamp - b.timestamp);
@@ -3067,6 +3278,57 @@
               : 0;
           const peak = hashrates.length > 0 ? Math.max(...hashrates) : 0;
 
+          // Fetch block data for color coding
+          let kcnBlocks = [];
+          let lcnBlocks = [];
+          try {
+            const kcnBlocksResp = await fetch(
+              `/api/blocks/KCN?limit=1000&sort=timestamp&order=desc`
+            );
+            if (kcnBlocksResp.ok) {
+              const kcnData = await kcnBlocksResp.json();
+              kcnBlocks = kcnData.blocks || [];
+            }
+
+            const lcnBlocksResp = await fetch(
+              `/api/blocks/LCN?limit=1000&sort=timestamp&order=desc`
+            );
+            if (lcnBlocksResp.ok) {
+              const lcnData = await lcnBlocksResp.json();
+              lcnBlocks = lcnData.blocks || [];
+            }
+          } catch (error) {
+            console.warn("Error fetching block data for chart colors:", error);
+          }
+
+          // Get timestamps from points for color and size array
+          const timestamps = points.map((p) => p.timestamp);
+
+          // Get color and size arrays based on combined block counts
+          const pointData = getPointColorsAndSizes(
+            timestamps,
+            kcnBlocks,
+            lcnBlocks
+          );
+
+          // Helper to get total block count for a timestamp in hashrate chart
+          const getHashrateTotalBlockCount = (index) => {
+            const timestamp = timestamps[index];
+            const nextTimestamp =
+              index < timestamps.length - 1
+                ? timestamps[index + 1]
+                : timestamp + 3600;
+
+            const kcnCount = kcnBlocks.filter(
+              (b) => b.timestamp >= timestamp && b.timestamp < nextTimestamp
+            ).length;
+            const lcnCount = lcnBlocks.filter(
+              (b) => b.timestamp >= timestamp && b.timestamp < nextTimestamp
+            ).length;
+
+            return kcnCount + lcnCount;
+          };
+
           const ctx = document
             .getElementById("hashrate-chart")
             .getContext("2d");
@@ -3075,6 +3337,7 @@
             hashrateChart.destroy();
           }
 
+          Chart.defaults.color = colors.legendColor;
           hashrateChart = new Chart(ctx, {
             type: "line",
             data: {
@@ -3088,8 +3351,8 @@
                   borderWidth: 2.5,
                   fill: true,
                   tension: 0.4,
-                  pointRadius: 2,
-                  pointBackgroundColor: colors.kcnColor,
+                  pointRadius: pointData.sizes,
+                  pointBackgroundColor: pointData.colors,
                   pointBorderColor: colors.backgroundColor,
                   pointBorderWidth: 1,
                 },
@@ -3107,20 +3370,66 @@
               ],
             },
             options: {
+              color: colors.legendColor,
               responsive: true,
               maintainAspectRatio: false,
               plugins: {
                 legend: {
                   display: true,
                   labels: {
-                    color: colors.textColor,
+                    color: colors.legendColor,
                     usePointStyle: true,
                     padding: 20,
                     font: { size: 12 },
+                    generateLabels(chart) {
+                      return chart.data.datasets.map((dataset, i) => ({
+                        text: dataset.label,
+                        fillStyle: dataset.label.includes("Average")
+                          ? colors.legendColor
+                          : colors.kcnColor,
+                        fontColor: colors.legendColor,
+                        strokeStyle: "transparent",
+                        pointStyle: "circle",
+                        hidden: chart.getDatasetMeta(i).hidden,
+                        datasetIndex: i,
+                      }));
+                    },
+                  },
+                  onClick: (e, legendItem, legend) => {
+                    const index = legendItem.datasetIndex;
+                    const meta = legend.chart.getDatasetMeta(index);
+                    meta.hidden = !meta.hidden;
+                    legend.chart.update();
                   },
                 },
                 filler: {
                   propagate: true,
+                },
+                tooltip: {
+                  callbacks: {
+                    label: function (context) {
+                      // Skip tooltip for average line
+                      if (context.dataset.label.includes("Average")) {
+                        return null;
+                      }
+
+                      let label = context.dataset.label || "";
+                      if (label) {
+                        label += ": ";
+                      }
+                      if (context.parsed.y !== null) {
+                        label += context.parsed.y.toFixed(2);
+                      }
+
+                      // Add block count
+                      const blockCount = getHashrateTotalBlockCount(
+                        context.dataIndex
+                      );
+                      label += ` KH/s • Blocks: ${blockCount}`;
+
+                      return label;
+                    },
+                  },
                 },
               },
               scales: {

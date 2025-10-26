@@ -601,6 +601,29 @@ tbody tr td a.hash-link {
   background: rgba(0, 0, 0, 0.18);
 }
 
+/* Active chart button styling */
+.toolbar-btn.active-chart-btn {
+  background: var(--badge-accepted);
+  color: #fff;
+  border-color: var(--badge-accepted);
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(5, 165, 50, 0.3);
+}
+.toolbar-btn.active-chart-btn:hover {
+  background: var(--badge-kcn-light);
+  border-color: var(--badge-kcn-light);
+}
+[data-theme="light"] .toolbar-btn.active-chart-btn {
+  background: #05a532;
+  color: #fff;
+  border-color: #05a532;
+  box-shadow: 0 2px 8px rgba(5, 165, 50, 0.2);
+}
+[data-theme="light"] .toolbar-btn.active-chart-btn:hover {
+  background: #048c2a;
+  border-color: #048c2a;
+}
+
 /* Pagination controls for blocks table */
 .pagination-controls {
   display: flex;
