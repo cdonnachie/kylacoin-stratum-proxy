@@ -35,11 +35,19 @@
         <div class="filters-panel">
           <div class="filter-group">
             <label for="worker-filter">Worker:</label>
+            <select id="worker-filter" style="min-width: 180px">
+              <option value="">All workers</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label for="worker-search" style="opacity: 0.6; font-size: 0.85em"
+              >Filter by name:</label
+            >
             <input
               type="text"
-              id="worker-filter"
-              placeholder="All workers"
-              style="min-width: 150px"
+              id="worker-search"
+              placeholder="e.g., 9900x"
+              style="min-width: 120px"
             />
           </div>
           <div class="filter-group">
@@ -57,6 +65,11 @@
           <div class="filter-group" style="margin-left: auto">
             <button onclick="applyFilters()">Apply Filters</button>
           </div>
+        </div>
+
+        <!-- Active Filters Row -->
+        <div id="filters-row" class="filters-row" style="display: none">
+          <div id="filter-badges" class="filter-badges"></div>
         </div>
 
         <!-- Statistics Panel -->
@@ -208,6 +221,7 @@
       let ws = null;
       let shares = [];
       let hasMergeMiners = false; // Track if any shares have LCN mining
+      let uniqueWorkers = new Set(); // Track unique worker names
       let currentFilters = {
         worker: "",
         acceptedOnly: false,
@@ -277,9 +291,27 @@
         }
       }
 
+      // Update worker dropdown with available workers
+      function updateWorkerDropdown(workerName) {
+        if (!uniqueWorkers.has(workerName)) {
+          uniqueWorkers.add(workerName);
+
+          const select = document.getElementById("worker-filter");
+          if (select) {
+            const option = document.createElement("option");
+            option.value = workerName;
+            option.textContent = workerName;
+            select.appendChild(option);
+          }
+        }
+      }
+
       // Add share to table
       function addShareToTable(share) {
         const tbody = document.getElementById("shares-tbody");
+
+        // Update worker dropdown
+        updateWorkerDropdown(share.worker);
 
         // Clear "waiting" message
         if (
@@ -367,8 +399,16 @@
         timeCell.style.fontSize = "0.9em";
         row.insertBefore(timeCell, row.firstChild);
 
+        // Add animation class for fade-in + highlight
+        row.classList.add("new-share");
+
         // Insert at top
         tbody.insertBefore(row, tbody.firstChild);
+
+        // Remove animation class after animation completes to allow re-animation if needed
+        setTimeout(() => {
+          row.classList.remove("new-share");
+        }, 1500);
 
         // Keep only last 100 rows
         while (tbody.children.length > 100) {
@@ -421,9 +461,43 @@
         }
       }
 
+      // Update search field disabled state based on worker selection
+      function updateSearchFieldState() {
+        const workerSelect = document.getElementById("worker-filter");
+        const searchField = document.getElementById("worker-search");
+        const isWorkerSelected = workerSelect.value.trim() !== "";
+
+        searchField.disabled = isWorkerSelected;
+        if (isWorkerSelected) {
+          searchField.value = "";
+        }
+      }
+
       // Apply filters
       async function applyFilters() {
-        const worker = document.getElementById("worker-filter").value.trim();
+        // Get worker from dropdown (full worker name) or from search field (substring)
+        const selectedWorker = document
+          .getElementById("worker-filter")
+          .value.trim();
+        const searchWorker = document
+          .getElementById("worker-search")
+          .value.trim()
+          .toLowerCase();
+
+        // Use selected worker from dropdown, or search in all workers if search field is used
+        let worker = selectedWorker;
+
+        // If search field is used, find workers matching the search term
+        if (searchWorker && !selectedWorker) {
+          // Find first worker that contains the search term
+          for (let w of uniqueWorkers) {
+            if (w.toLowerCase().includes(searchWorker)) {
+              worker = w;
+              break;
+            }
+          }
+        }
+
         const acceptedOnly = document.getElementById("accepted-only").checked;
         const blocksOnly = document.getElementById("blocks-only").checked;
 
@@ -449,8 +523,8 @@
             tbody.innerHTML =
               '<tr><td colspan="7" class="no-shares">No shares match filters</td></tr>';
           } else {
-            // Reverse to show newest first
-            data.shares.reverse().forEach((share) => {
+            // Display shares (already sorted newest first from API)
+            data.shares.forEach((share) => {
               const row = document.createElement("tr");
               row.className = `share-row ${share.is_block ? "block" : ""} ${
                 !share.accepted ? "rejected" : ""
@@ -533,8 +607,77 @@
           }
 
           updateLastUpdateTime();
+          updateFilterStatus();
         } catch (e) {
           console.error("Failed to apply filters:", e);
+        }
+      }
+
+      // Clear individual filter
+      function clearFilter(filterType) {
+        if (filterType === "worker") {
+          document.getElementById("worker-filter").value = "";
+          document.getElementById("worker-search").value = "";
+          document.getElementById("worker-search").disabled = false;
+          currentFilters.worker = "";
+        } else if (filterType === "accepted") {
+          document.getElementById("accepted-only").checked = false;
+          currentFilters.acceptedOnly = false;
+        } else if (filterType === "blocks") {
+          document.getElementById("blocks-only").checked = false;
+          currentFilters.blocksOnly = false;
+        }
+        applyFilters();
+      }
+
+      // Update filter status indicator
+      function updateFilterStatus() {
+        const filtersRow = document.getElementById("filters-row");
+        const filterBadges = document.getElementById("filter-badges");
+        filterBadges.innerHTML = "";
+
+        const activeFilters = [];
+
+        if (currentFilters.worker) {
+          const workerDisplay =
+            currentFilters.worker.length > 20
+              ? currentFilters.worker.substring(0, 20) + "..."
+              : currentFilters.worker;
+          activeFilters.push({
+            type: "worker",
+            label: `Worker: ${workerDisplay}`,
+            full: currentFilters.worker,
+          });
+        }
+        if (currentFilters.acceptedOnly) {
+          activeFilters.push({
+            type: "accepted",
+            label: "Accepted Only",
+            full: "Accepted Only",
+          });
+        }
+        if (currentFilters.blocksOnly) {
+          activeFilters.push({
+            type: "blocks",
+            label: "Blocks Only",
+            full: "Blocks Only",
+          });
+        }
+
+        if (activeFilters.length > 0) {
+          activeFilters.forEach((filter) => {
+            const badge = document.createElement("span");
+            badge.className = "filter-badge";
+            badge.title = filter.full;
+            badge.innerHTML = `
+              ${filter.label}
+              <button class="badge-close" onclick="clearFilter('${filter.type}')" title="Clear this filter">×</button>
+            `;
+            filterBadges.appendChild(badge);
+          });
+          filtersRow.style.display = "block";
+        } else {
+          filtersRow.style.display = "none";
         }
       }
 
@@ -646,10 +789,20 @@
           }
         });
 
+      // Listen for worker dropdown changes
+      document
+        .getElementById("worker-filter")
+        .addEventListener("change", updateSearchFieldState);
+
       // Initial setup
       window.addEventListener("load", () => {
         // Load historical shares from database/buffer first (if available)
-        applyFilters();
+        applyFilters().then(() => {
+          // Populate worker dropdown from loaded shares
+          shares.forEach((share) => {
+            updateWorkerDropdown(share.worker);
+          });
+        });
         // Connect to WebSocket for real-time updates
         connectWebSocket();
         updateStats();
