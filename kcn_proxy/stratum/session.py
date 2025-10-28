@@ -704,13 +704,21 @@ class StratumSession(RPCSession):
         # Accept share if it meets either target or the miner difficulty
         is_block = is_kcn_block or is_lcn_block
         if not is_block and (share_diff / sent_diff) < 0.99:
+            # Share is rejected due to insufficient difficulty
+            self.logger.info(
+                "Share rejected: insufficient difficulty (%.8f < %.8f)",
+                share_diff,
+                sent_diff,
+            )
+
             # Log rejected share asynchronously
             import time
 
+            current_timestamp = int(time.time())
             asyncio.create_task(
                 _log_share_stats_background(
                     worker=worker,
-                    timestamp=int(time.time()),
+                    timestamp=current_timestamp,
                     accepted=False,
                     difficulty=share_diff,
                 )
@@ -720,6 +728,31 @@ class StratumSession(RPCSession):
                 hashrate_tracker.add_share(worker, sent_diff, accepted=False)
             except Exception as e:
                 self.logger.debug("Failed to record rejected share: %s", e)
+
+            # Add rejected share to feed for dashboard visibility
+            try:
+                from ..web.share_feed import get_share_feed_manager
+
+                feed_manager = get_share_feed_manager()
+                self.logger.debug("Adding rejected share to feed for worker %s", worker)
+                asyncio.create_task(
+                    feed_manager.add_share(
+                        worker=worker,
+                        share_difficulty=share_diff,
+                        sent_difficulty=sent_diff,
+                        is_block=False,
+                        accepted=False,
+                        kcn_difficulty=kcn_difficulty,
+                        lcn_difficulty=lcn_difficulty,
+                        chain=None,
+                        miner_software=getattr(self, "_miner_software", None),
+                        is_kcn_block=False,
+                        is_lcn_block=False,
+                    )
+                )
+            except Exception as e:
+                self.logger.error("Failed to add rejected share to feed: %s", e)
+
             return False
 
         block_msg_parts = []

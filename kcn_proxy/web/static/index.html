@@ -105,45 +105,65 @@
 
         <div
           class="stat-card"
-          title="Estimated time to find a block based on current EMA hashrate and network difficulty (statistical average)"
+          title="Time to find estimates: Now (current), 12h (medium-term avg), 24h (daily avg)"
         >
           <h3>Time To Find</h3>
           <div
             style="
               display: flex;
               flex-direction: column;
-              gap: 8px;
+              gap: 6px;
               margin-top: 8px;
             "
           >
-            <div style="display: flex; align-items: baseline; gap: 8px">
-              <img
-                src="/static/kylacoin-logo.png"
-                alt="KCN"
-                class="chain-logo"
-                style="width: 16px; height: 16px; vertical-align: middle"
-                onerror="this.style.display='none'"
-              />
-              <span style="font-size: 0.7em; opacity: 0.7; min-width: 35px"
+            <div style="display: flex; gap: 8px; align-items: center">
+              <span style="font-size: 0.85em; opacity: 0.7; min-width: 35px"
                 >KCN:</span
               >
-              <span id="ttf-kcn" class="value" style="font-size: 1.4em">—</span>
+              <span
+                id="ttf-kcn"
+                class="value"
+                style="font-size: 1em; min-width: 40px"
+                >—</span
+              >
+              <span
+                id="ttf-kcn-12h"
+                class="value"
+                style="font-size: 1em; min-width: 40px"
+                >—</span
+              >
+              <span
+                id="ttf-kcn-24h"
+                class="value"
+                style="font-size: 1em; min-width: 40px"
+                >—</span
+              >
             </div>
-            <div style="display: flex; align-items: baseline; gap: 8px">
-              <img
-                src="/static/lyncoin-logo.png"
-                alt="LCN"
-                class="chain-logo"
-                style="width: 16px; height: 16px; vertical-align: middle"
-                onerror="this.style.display='none'"
-              />
-              <span style="font-size: 0.7em; opacity: 0.7; min-width: 35px"
+            <div style="display: flex; gap: 8px; align-items: center">
+              <span style="font-size: 0.85em; opacity: 0.7; min-width: 35px"
                 >LCN:</span
               >
-              <span id="ttf-lcn" class="value" style="font-size: 1.4em">—</span>
+              <span
+                id="ttf-lcn"
+                class="value"
+                style="font-size: 1em; min-width: 40px"
+                >—</span
+              >
+              <span
+                id="ttf-lcn-12h"
+                class="value"
+                style="font-size: 1em; min-width: 40px"
+                >—</span
+              >
+              <span
+                id="ttf-lcn-24h"
+                class="value"
+                style="font-size: 1em; min-width: 40px"
+                >—</span
+              >
             </div>
           </div>
-          <div class="subtext" style="margin-top: 8px">Statistical average</div>
+          <div class="subtext" style="margin-top: 6px">Now | 12h | 24h</div>
         </div>
 
         <div
@@ -198,9 +218,13 @@
 
         <div
           class="stat-card kcn-earnings-card"
-          title="Estimated earnings based on current hashrate, difficulty, and KCN market price"
           id="earnings-card"
-          style="display: none"
+          style="
+            display: none;
+            position: relative;
+            cursor: help;
+            overflow: visible;
+          "
         >
           <h3>
             <img
@@ -225,6 +249,60 @@
           </div>
           <div class="subtext" style="margin-top: 6px; font-size: 0.65em">
             Updated: <span id="earnings-timestamp">—</span>
+          </div>
+          <!-- Hover card for earnings breakdown -->
+          <div id="earnings-hover-card" class="earnings-hover-card">
+            <div class="earnings-hover-card-title">Earnings Estimates</div>
+            <div class="earnings-hover-card-row">
+              <div class="earnings-hover-card-label">🔴 Now (Optimistic)</div>
+              <div class="earnings-hover-card-value">
+                <span id="hover-now-usd">—</span> /day
+              </div>
+              <div class="earnings-hover-card-weekly">
+                <span id="hover-now-weekly-usd">—</span> /week
+              </div>
+            </div>
+            <div class="earnings-hover-card-row">
+              <div class="earnings-hover-card-label">🟡 12h Avg (Medium)</div>
+              <div class="earnings-hover-card-value">
+                <span id="hover-12h-usd">—</span> /day
+              </div>
+              <div class="earnings-hover-card-weekly">
+                <span id="hover-12h-weekly-usd">—</span> /week
+              </div>
+            </div>
+            <div class="earnings-hover-card-row">
+              <div class="earnings-hover-card-label">
+                🟢 24h Avg (Realistic)
+              </div>
+              <div class="earnings-hover-card-value">
+                <span id="hover-24h-usd">—</span> /day
+              </div>
+              <div class="earnings-hover-card-weekly">
+                <span id="hover-24h-weekly-usd">—</span> /week
+              </div>
+            </div>
+            <div
+              style="
+                border-top: 1px solid var(--card-border);
+                margin-top: 8px;
+                padding-top: 8px;
+                opacity: 0.85;
+              "
+            >
+              <div class="earnings-hover-card-label">
+                ⭐ Actual KCN (<span id="hover-actual-days">—</span>)
+              </div>
+              <div class="earnings-hover-card-value">
+                <span id="hover-actual-usd">—</span> /day avg
+              </div>
+              <div class="earnings-hover-card-weekly">
+                <span id="hover-actual-weekly-usd">—</span> /week projected
+              </div>
+              <div style="font-size: 0.75em; opacity: 0.6; margin-top: 4px">
+                (<span id="hover-actual-blocks">—</span> blocks)
+              </div>
+            </div>
           </div>
         </div>
 
@@ -258,7 +336,12 @@
           class="stat-card lcn-earnings-card"
           title="Estimated earnings based on current hashrate, difficulty, and LCN market price"
           id="lcn-earnings-card"
-          style="display: none"
+          style="
+            display: none;
+            position: relative;
+            cursor: help;
+            overflow: visible;
+          "
         >
           <h3>
             <img
@@ -287,6 +370,64 @@
           </div>
           <div class="subtext" style="margin-top: 6px; font-size: 0.65em">
             Updated: <span id="lcn-earnings-timestamp">—</span>
+          </div>
+          <!-- Hover card for LCN earnings breakdown -->
+          <div id="lcn-earnings-hover-card" class="earnings-hover-card">
+            <div
+              class="earnings-hover-card-title lcn-earnings-hover-card-title"
+            >
+              Earnings Estimates
+            </div>
+            <div class="earnings-hover-card-row">
+              <div class="earnings-hover-card-label">🔴 Now (Optimistic)</div>
+              <div class="earnings-hover-card-value">
+                <span id="lcn-hover-now-usd">—</span> /day
+              </div>
+              <div class="earnings-hover-card-weekly">
+                <span id="lcn-hover-now-weekly-usd">—</span> /week
+              </div>
+            </div>
+            <div class="earnings-hover-card-row">
+              <div class="earnings-hover-card-label">🟡 12h Avg (Medium)</div>
+              <div class="earnings-hover-card-value">
+                <span id="lcn-hover-12h-usd">—</span> /day
+              </div>
+              <div class="earnings-hover-card-weekly">
+                <span id="lcn-hover-12h-weekly-usd">—</span> /week
+              </div>
+            </div>
+            <div class="earnings-hover-card-row">
+              <div class="earnings-hover-card-label">
+                🟢 24h Avg (Realistic)
+              </div>
+              <div class="earnings-hover-card-value">
+                <span id="lcn-hover-24h-usd">—</span> /day
+              </div>
+              <div class="earnings-hover-card-weekly">
+                <span id="lcn-hover-24h-weekly-usd">—</span> /week
+              </div>
+            </div>
+            <div
+              style="
+                border-top: 1px solid var(--card-border);
+                margin-top: 8px;
+                padding-top: 8px;
+                opacity: 0.85;
+              "
+            >
+              <div class="earnings-hover-card-label">
+                ⭐ Actual LCN (<span id="lcn-hover-actual-days">—</span>)
+              </div>
+              <div class="earnings-hover-card-value">
+                <span id="lcn-hover-actual-usd">—</span> /day avg
+              </div>
+              <div class="earnings-hover-card-weekly">
+                <span id="lcn-hover-actual-weekly-usd">—</span> /week projected
+              </div>
+              <div style="font-size: 0.75em; opacity: 0.6; margin-top: 4px">
+                (<span id="lcn-hover-actual-blocks">—</span> blocks)
+              </div>
+            </div>
           </div>
         </div>
 
@@ -736,6 +877,87 @@
           </svg>
           Recent Blocks
         </h2>
+        <div
+          style="
+            margin-bottom: 16px;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+          "
+        >
+          <label
+            for="export-chain-filter"
+            style="font-size: 0.9em; opacity: 0.8"
+            >Export:</label
+          >
+          <select id="export-chain-filter" class="export-filter-select">
+            <option value="">All Chains</option>
+            <option value="KCN">KCN Only</option>
+            <option value="LCN">LCN Only</option>
+          </select>
+          <button
+            id="export-json-btn"
+            class="toolbar-btn export-btn"
+            style="font-size: 0.9em"
+            title="Download all blocks as JSON"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="lucide lucide-file-json-icon lucide-file-json"
+            >
+              <path
+                d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"
+              />
+              <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+              <path
+                d="M10 12a1 1 0 0 0-1 1v1a1 1 0 0 1-1 1 1 1 0 0 1 1 1v1a1 1 0 0 0 1 1"
+              />
+              <path
+                d="M14 18a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1 1 1 0 0 1-1-1v-1a1 1 0 0 0-1-1"
+              />
+            </svg>
+            JSON
+          </button>
+          <button
+            id="export-csv-btn"
+            class="toolbar-btn export-btn"
+            style="font-size: 0.9em"
+            title="Download all blocks as CSV"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="lucide lucide-sheet-icon lucide-sheet"
+            >
+              <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+              <line x1="3" x2="21" y1="9" y2="9" />
+              <line x1="3" x2="21" y1="15" y2="15" />
+              <line x1="9" x2="9" y1="9" y2="21" />
+              <line x1="15" x2="15" y1="9" y2="21" />
+            </svg>
+            CSV
+          </button>
+          <span
+            id="export-status"
+            style="font-size: 0.85em; opacity: 0.6; display: none"
+          ></span>
+        </div>
         <div
           id="blocks-container"
           class="dual-blocks"
@@ -1856,6 +2078,12 @@
           // Update TTF estimates
           const ttfKcnEl = document.getElementById("ttf-kcn");
           const ttfLcnEl = document.getElementById("ttf-lcn");
+          const ttfKcn12hEl = document.getElementById("ttf-kcn-12h");
+          const ttfLcn12hEl = document.getElementById("ttf-lcn-12h");
+          const ttfKcn24hEl = document.getElementById("ttf-kcn-24h");
+          const ttfLcn24hEl = document.getElementById("ttf-lcn-24h");
+
+          // TTF Now
           if (ttfKcnEl) {
             ttfKcnEl.textContent = formatTTF(data.ttf_kcn_seconds);
             ttfKcnEl.title = data.ttf_kcn_seconds
@@ -1867,6 +2095,42 @@
             ttfLcnEl.title = data.ttf_lcn_seconds
               ? `${Math.round(data.ttf_lcn_seconds).toLocaleString()} seconds`
               : "No hashrate data";
+          }
+
+          // TTF 12h
+          if (ttfKcn12hEl) {
+            ttfKcn12hEl.textContent = formatTTF(data.ttf_kcn_12h_seconds);
+            ttfKcn12hEl.title = data.ttf_kcn_12h_seconds
+              ? `${Math.round(
+                  data.ttf_kcn_12h_seconds
+                ).toLocaleString()} seconds (12h avg)`
+              : "No history data";
+          }
+          if (ttfLcn12hEl) {
+            ttfLcn12hEl.textContent = formatTTF(data.ttf_lcn_12h_seconds);
+            ttfLcn12hEl.title = data.ttf_lcn_12h_seconds
+              ? `${Math.round(
+                  data.ttf_lcn_12h_seconds
+                ).toLocaleString()} seconds (12h avg)`
+              : "No history data";
+          }
+
+          // TTF 24h
+          if (ttfKcn24hEl) {
+            ttfKcn24hEl.textContent = formatTTF(data.ttf_kcn_24h_seconds);
+            ttfKcn24hEl.title = data.ttf_kcn_24h_seconds
+              ? `${Math.round(
+                  data.ttf_kcn_24h_seconds
+                ).toLocaleString()} seconds (24h avg)`
+              : "No history data";
+          }
+          if (ttfLcn24hEl) {
+            ttfLcn24hEl.textContent = formatTTF(data.ttf_lcn_24h_seconds);
+            ttfLcn24hEl.title = data.ttf_lcn_24h_seconds
+              ? `${Math.round(
+                  data.ttf_lcn_24h_seconds
+                ).toLocaleString()} seconds (24h avg)`
+              : "No history data";
           }
         } catch (error) {
           console.error("Error fetching stats:", error);
@@ -2472,6 +2736,41 @@
               formatUSD(dailyUSD);
           }
 
+          // Populate hover card with earnings scenarios if available
+          if (data.earnings_scenarios) {
+            const scenarios = data.earnings_scenarios;
+
+            // Now (current)
+            if (scenarios.now) {
+              const nowUSD = scenarios.now.total_usd_per_day;
+              const nowWeekly = scenarios.now.total_usd_per_week;
+              document.getElementById("hover-now-usd").textContent =
+                formatUSD(nowUSD);
+              document.getElementById("hover-now-weekly-usd").textContent =
+                formatUSD(nowWeekly);
+            }
+
+            // 12h average
+            if (scenarios.avg_12h) {
+              const avg12hUSD = scenarios.avg_12h.total_usd_per_day;
+              const avg12hWeekly = scenarios.avg_12h.total_usd_per_week;
+              document.getElementById("hover-12h-usd").textContent =
+                formatUSD(avg12hUSD);
+              document.getElementById("hover-12h-weekly-usd").textContent =
+                formatUSD(avg12hWeekly);
+            }
+
+            // 24h average
+            if (scenarios.avg_24h) {
+              const avg24hUSD = scenarios.avg_24h.total_usd_per_day;
+              const avg24hWeekly = scenarios.avg_24h.total_usd_per_week;
+              document.getElementById("hover-24h-usd").textContent =
+                formatUSD(avg24hUSD);
+              document.getElementById("hover-24h-weekly-usd").textContent =
+                formatUSD(avg24hWeekly);
+            }
+          }
+
           // Update weekly earnings (only if we have a value, preserve last known value)
           const weeklyUSD = data.total_usd_per_week;
           if (weeklyUSD !== null && weeklyUSD !== undefined) {
@@ -2562,9 +2861,87 @@
               document.getElementById("lcn-earnings-timestamp").textContent =
                 date.toLocaleTimeString();
             }
+
+            // Populate LCN hover card with earnings scenarios if available
+            if (data.earnings_scenarios) {
+              const scenarios = data.earnings_scenarios;
+
+              // Now (current)
+              if (scenarios.now) {
+                const nowUSD = scenarios.now.lcn_usd_per_day;
+                const nowWeekly = scenarios.now.lcn_usd_per_week;
+                document.getElementById("lcn-hover-now-usd").textContent =
+                  formatUSD(nowUSD);
+                document.getElementById(
+                  "lcn-hover-now-weekly-usd"
+                ).textContent = formatUSD(nowWeekly);
+              }
+
+              // 12h average
+              if (scenarios.avg_12h) {
+                const avg12hUSD = scenarios.avg_12h.lcn_usd_per_day;
+                const avg12hWeekly = scenarios.avg_12h.lcn_usd_per_week;
+                document.getElementById("lcn-hover-12h-usd").textContent =
+                  formatUSD(avg12hUSD);
+                document.getElementById(
+                  "lcn-hover-12h-weekly-usd"
+                ).textContent = formatUSD(avg12hWeekly);
+              }
+
+              // 24h average
+              if (scenarios.avg_24h) {
+                const avg24hUSD = scenarios.avg_24h.lcn_usd_per_day;
+                const avg24hWeekly = scenarios.avg_24h.lcn_usd_per_week;
+                document.getElementById("lcn-hover-24h-usd").textContent =
+                  formatUSD(avg24hUSD);
+                document.getElementById(
+                  "lcn-hover-24h-weekly-usd"
+                ).textContent = formatUSD(avg24hWeekly);
+              }
+            }
           }
 
-          // Update LCN price card if price is available
+          // Populate actual 7d earnings if available
+          if (data.actual_7d_earnings) {
+            const actual = data.actual_7d_earnings;
+            const daysLabel =
+              actual.actual_days === 1
+                ? "Last Day"
+                : `Last ${actual.actual_days} Days`;
+
+            // KCN card: show only KCN actual earnings
+            if (
+              actual.kcn_usd_per_day_avg !== null &&
+              actual.kcn_usd_per_day_avg !== undefined
+            ) {
+              document.getElementById("hover-actual-days").textContent =
+                daysLabel;
+              document.getElementById("hover-actual-usd").textContent =
+                formatUSD(actual.kcn_usd_per_day_avg);
+              document.getElementById("hover-actual-weekly-usd").textContent =
+                formatUSD(actual.kcn_usd_per_week);
+              document.getElementById(
+                "hover-actual-blocks"
+              ).textContent = `${actual.kcn_blocks_7d}K`;
+            }
+
+            // LCN card: show only LCN actual earnings
+            if (
+              actual.lcn_usd_per_day_avg !== null &&
+              actual.lcn_usd_per_day_avg !== undefined
+            ) {
+              document.getElementById("lcn-hover-actual-days").textContent =
+                daysLabel;
+              document.getElementById("lcn-hover-actual-usd").textContent =
+                formatUSD(actual.lcn_usd_per_day_avg);
+              document.getElementById(
+                "lcn-hover-actual-weekly-usd"
+              ).textContent = formatUSD(actual.lcn_usd_per_week);
+              document.getElementById(
+                "lcn-hover-actual-blocks"
+              ).textContent = `${actual.lcn_blocks_7d}L`;
+            }
+          }
           if (data.prices?.lcn_price_usd || data.prices?.lcn_price) {
             const lcnPriceCard = document.getElementById("lcn-price-card");
             if (lcnPriceCard) {
@@ -2620,6 +2997,33 @@
       updateAll();
       updateSystemConfig(); // Load system config once on startup
       checkLcnHashFixStatus(); // Check if LCN hash fix is needed
+
+      // Setup earnings hover card interaction (one-time)
+      (function setupEarningsHover() {
+        // KCN earnings card
+        const earningsCard = document.getElementById("earnings-card");
+        const hoverCard = document.getElementById("earnings-hover-card");
+        if (earningsCard && hoverCard) {
+          earningsCard.addEventListener("mouseenter", () => {
+            hoverCard.style.display = "block";
+          });
+          earningsCard.addEventListener("mouseleave", () => {
+            hoverCard.style.display = "none";
+          });
+        }
+
+        // LCN earnings card
+        const lcnEarningsCard = document.getElementById("lcn-earnings-card");
+        const lcnHoverCard = document.getElementById("lcn-earnings-hover-card");
+        if (lcnEarningsCard && lcnHoverCard) {
+          lcnEarningsCard.addEventListener("mouseenter", () => {
+            lcnHoverCard.style.display = "block";
+          });
+          lcnEarningsCard.addEventListener("mouseleave", () => {
+            lcnHoverCard.style.display = "none";
+          });
+        }
+      })();
 
       // Auto-refresh every 5 seconds
       setInterval(updateAll, 5000);
@@ -2793,6 +3197,117 @@
             btn.disabled = false;
             if (statusEl) statusEl.textContent = "";
           }, 6000);
+        });
+      })();
+
+      // Export blocks buttons
+      (function initExportButtons() {
+        const jsonBtn = document.getElementById("export-json-btn");
+        const csvBtn = document.getElementById("export-csv-btn");
+        const chainFilter = document.getElementById("export-chain-filter");
+        const statusEl = document.getElementById("export-status");
+
+        if (!jsonBtn || !csvBtn || !chainFilter) return;
+
+        function getExportParams() {
+          const chain = chainFilter.value || null;
+          return chain ? `?chain=${chain}` : "";
+        }
+
+        jsonBtn.addEventListener("click", async () => {
+          try {
+            jsonBtn.disabled = true;
+            if (statusEl) statusEl.textContent = "Exporting...";
+            if (statusEl) statusEl.style.display = "inline";
+
+            const params = getExportParams();
+            const response = await fetch(`/api/blocks/export/json${params}`);
+
+            if (!response.ok) throw new Error("Export failed");
+
+            // Get the blob and filename from Content-Disposition header
+            const blob = await response.blob();
+            const contentDisposition = response.headers.get(
+              "content-disposition"
+            );
+            let filename = "blocks.json";
+            if (contentDisposition) {
+              const matches = contentDisposition.match(
+                /filename[^;=\n]*=(["\']?)([^"\';\n]*)\1/
+              );
+              if (matches && matches[2]) filename = matches[2];
+            }
+
+            // Create download link
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+
+            if (statusEl) {
+              statusEl.textContent = "✓ Downloaded";
+              setTimeout(() => {
+                statusEl.style.display = "none";
+              }, 2000);
+            }
+          } catch (e) {
+            console.error("JSON export failed", e);
+            if (statusEl) statusEl.textContent = "✗ Export failed";
+          } finally {
+            jsonBtn.disabled = false;
+          }
+        });
+
+        csvBtn.addEventListener("click", async () => {
+          try {
+            csvBtn.disabled = true;
+            if (statusEl) statusEl.textContent = "Exporting...";
+            if (statusEl) statusEl.style.display = "inline";
+
+            const params = getExportParams();
+            const response = await fetch(`/api/blocks/export/csv${params}`);
+
+            if (!response.ok) throw new Error("Export failed");
+
+            // Get the blob and filename from Content-Disposition header
+            const blob = await response.blob();
+            const contentDisposition = response.headers.get(
+              "content-disposition"
+            );
+            let filename = "blocks.csv";
+            if (contentDisposition) {
+              const matches = contentDisposition.match(
+                /filename[^;=\n]*=(["\']?)([^"\';\n]*)\1/
+              );
+              if (matches && matches[2]) filename = matches[2];
+            }
+
+            // Create download link
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+
+            if (statusEl) {
+              statusEl.textContent = "✓ Downloaded";
+              setTimeout(() => {
+                statusEl.style.display = "none";
+              }, 2000);
+            }
+          } catch (e) {
+            console.error("CSV export failed", e);
+            if (statusEl) statusEl.textContent = "✗ Export failed";
+          } finally {
+            csvBtn.disabled = false;
+          }
         });
       })();
 

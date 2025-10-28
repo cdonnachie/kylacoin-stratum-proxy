@@ -2,13 +2,16 @@
 
 from fastapi import FastAPI, WebSocket, Query
 from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 import time
 import logging
 import os
 import asyncio
+import csv
+import json
+from io import StringIO
 from ..stratum import vardiff as _vardiff_mod
 from .share_feed import get_share_feed_manager
 
@@ -467,10 +470,15 @@ async def get_stats(hours: int = 24):
             ema_hs = float(hashrate_display.get("ema", 0.0))
             total_ema_hs += ema_hs
 
-        # Calculate TTF for both chains (in seconds)
+        # Initialize all TTF fields to None
         stats["ttf_kcn_seconds"] = None
         stats["ttf_lcn_seconds"] = None
+        stats["ttf_kcn_12h_seconds"] = None
+        stats["ttf_lcn_12h_seconds"] = None
+        stats["ttf_kcn_24h_seconds"] = None
+        stats["ttf_lcn_24h_seconds"] = None
 
+        # Calculate TTF Now (using current EMA hashrate and current difficulty)
         if total_ema_hs > 0:
             kcn_diff = stats.get("current_kcn_difficulty", 0)
             lcn_diff = stats.get("current_lcn_difficulty", 0)
@@ -481,6 +489,85 @@ async def get_stats(hours: int = 24):
 
             if lcn_diff > 0:
                 stats["ttf_lcn_seconds"] = (lcn_diff * (2**32)) / total_ema_hs
+
+        # Calculate TTF based on historical averages if database is enabled
+        db_enabled = os.getenv("ENABLE_DATABASE", "false").lower() == "true"
+        if db_enabled:
+            try:
+                from ..db.schema import get_hashrate_history, get_difficulty_history
+
+                # Get 12-hour and 24-hour averages
+                hashrate_12h_data = await get_hashrate_history(hours=12)
+                hashrate_24h_data = await get_hashrate_history(hours=24)
+                difficulty_12h_kcn = await get_difficulty_history("KCN", hours=12)
+                difficulty_24h_kcn = await get_difficulty_history("KCN", hours=24)
+                difficulty_12h_lcn = await get_difficulty_history("LCN", hours=12)
+                difficulty_24h_lcn = await get_difficulty_history("LCN", hours=24)
+
+                # Calculate average hashrates
+                avg_hashrate_12h = 0.0
+                if hashrate_12h_data:
+                    hashrates_12h = [h["hashrate_hs"] for h in hashrate_12h_data]
+                    avg_hashrate_12h = (
+                        sum(hashrates_12h) / len(hashrates_12h)
+                        if hashrates_12h
+                        else 0.0
+                    )
+
+                avg_hashrate_24h = 0.0
+                if hashrate_24h_data:
+                    hashrates_24h = [h["hashrate_hs"] for h in hashrate_24h_data]
+                    avg_hashrate_24h = (
+                        sum(hashrates_24h) / len(hashrates_24h)
+                        if hashrates_24h
+                        else 0.0
+                    )
+
+                # Calculate average difficulties
+                avg_difficulty_12h_kcn = 0.0
+                if difficulty_12h_kcn:
+                    diffs = [d["difficulty"] for d in difficulty_12h_kcn]
+                    avg_difficulty_12h_kcn = sum(diffs) / len(diffs) if diffs else 0.0
+
+                avg_difficulty_24h_kcn = 0.0
+                if difficulty_24h_kcn:
+                    diffs = [d["difficulty"] for d in difficulty_24h_kcn]
+                    avg_difficulty_24h_kcn = sum(diffs) / len(diffs) if diffs else 0.0
+
+                avg_difficulty_12h_lcn = 0.0
+                if difficulty_12h_lcn:
+                    diffs = [d["difficulty"] for d in difficulty_12h_lcn]
+                    avg_difficulty_12h_lcn = sum(diffs) / len(diffs) if diffs else 0.0
+
+                avg_difficulty_24h_lcn = 0.0
+                if difficulty_24h_lcn:
+                    diffs = [d["difficulty"] for d in difficulty_24h_lcn]
+                    avg_difficulty_24h_lcn = sum(diffs) / len(diffs) if diffs else 0.0
+
+                # Calculate TTF 12h (average hashrate from last 12h vs current difficulty)
+                if avg_hashrate_12h > 0:
+                    if avg_difficulty_12h_kcn > 0:
+                        stats["ttf_kcn_12h_seconds"] = (
+                            avg_difficulty_12h_kcn * (2**32)
+                        ) / avg_hashrate_12h
+                    if avg_difficulty_12h_lcn > 0:
+                        stats["ttf_lcn_12h_seconds"] = (
+                            avg_difficulty_12h_lcn * (2**32)
+                        ) / avg_hashrate_12h
+
+                # Calculate TTF 24h (average hashrate from last 24h vs current difficulty)
+                if avg_hashrate_24h > 0:
+                    if avg_difficulty_24h_kcn > 0:
+                        stats["ttf_kcn_24h_seconds"] = (
+                            avg_difficulty_24h_kcn * (2**32)
+                        ) / avg_hashrate_24h
+                    if avg_difficulty_24h_lcn > 0:
+                        stats["ttf_lcn_24h_seconds"] = (
+                            avg_difficulty_24h_lcn * (2**32)
+                        ) / avg_hashrate_24h
+
+            except Exception as e:
+                logger.debug(f"Could not calculate historical TTF estimates: {e}")
 
     return JSONResponse(stats)
 
@@ -1196,8 +1283,8 @@ async def get_earnings_estimate():
             f"kcn_price=${prices.get('kcn_price_usd')}, lcn_price=${prices.get('lcn_price_usd')}"
         )
 
-        # Calculate earnings with actual block rewards
-        earnings = EarningsCalculator.calculate_daily_earnings(
+        # Calculate earnings with actual block rewards - using NOW (current EMA hashrate)
+        earnings_now = EarningsCalculator.calculate_daily_earnings(
             hashrate_hs=total_hashrate_hs,
             kcn_difficulty=kcn_difficulty,
             lcn_difficulty=lcn_difficulty,
@@ -1208,6 +1295,97 @@ async def get_earnings_estimate():
             kcn_block_reward=kcn_block_reward,
             lcn_block_reward=lcn_block_reward,
         )
+
+        # Use 24h average if database enabled, otherwise use NOW as default
+        earnings = earnings_now.copy()
+        db_enabled = os.getenv("ENABLE_DATABASE", "false").lower() == "true"
+        earnings_12h = None
+        earnings_24h = None
+
+        if db_enabled:
+            try:
+                from ..db.schema import get_hashrate_history, get_difficulty_history
+
+                # Get 12-hour and 24-hour averages
+                hashrate_12h_data = await get_hashrate_history(hours=12)
+                hashrate_24h_data = await get_hashrate_history(hours=24)
+                difficulty_12h_kcn = await get_difficulty_history("KCN", hours=12)
+                difficulty_24h_kcn = await get_difficulty_history("KCN", hours=24)
+                difficulty_12h_lcn = await get_difficulty_history("LCN", hours=12)
+                difficulty_24h_lcn = await get_difficulty_history("LCN", hours=24)
+
+                # Calculate average hashrates
+                avg_hashrate_12h = 0.0
+                if hashrate_12h_data:
+                    hashrates_12h = [h["hashrate_hs"] for h in hashrate_12h_data]
+                    avg_hashrate_12h = (
+                        sum(hashrates_12h) / len(hashrates_12h)
+                        if hashrates_12h
+                        else 0.0
+                    )
+
+                avg_hashrate_24h = 0.0
+                if hashrate_24h_data:
+                    hashrates_24h = [h["hashrate_hs"] for h in hashrate_24h_data]
+                    avg_hashrate_24h = (
+                        sum(hashrates_24h) / len(hashrates_24h)
+                        if hashrates_24h
+                        else 0.0
+                    )
+
+                # Calculate average difficulties
+                avg_difficulty_12h_kcn = 0.0
+                if difficulty_12h_kcn:
+                    diffs = [d["difficulty"] for d in difficulty_12h_kcn]
+                    avg_difficulty_12h_kcn = sum(diffs) / len(diffs) if diffs else 0.0
+
+                avg_difficulty_24h_kcn = 0.0
+                if difficulty_24h_kcn:
+                    diffs = [d["difficulty"] for d in difficulty_24h_kcn]
+                    avg_difficulty_24h_kcn = sum(diffs) / len(diffs) if diffs else 0.0
+
+                avg_difficulty_12h_lcn = 0.0
+                if difficulty_12h_lcn:
+                    diffs = [d["difficulty"] for d in difficulty_12h_lcn]
+                    avg_difficulty_12h_lcn = sum(diffs) / len(diffs) if diffs else 0.0
+
+                avg_difficulty_24h_lcn = 0.0
+                if difficulty_24h_lcn:
+                    diffs = [d["difficulty"] for d in difficulty_24h_lcn]
+                    avg_difficulty_24h_lcn = sum(diffs) / len(diffs) if diffs else 0.0
+
+                # Calculate earnings for 12h average
+                if avg_hashrate_12h > 0:
+                    earnings_12h = EarningsCalculator.calculate_daily_earnings(
+                        hashrate_hs=avg_hashrate_12h,
+                        kcn_difficulty=avg_difficulty_12h_kcn,
+                        lcn_difficulty=avg_difficulty_12h_lcn,
+                        kcn_price_btc=prices.get("kcn_price"),
+                        kcn_price_usd=prices.get("kcn_price_usd"),
+                        lcn_price_btc=prices.get("lcn_price"),
+                        lcn_price_usd=prices.get("lcn_price_usd"),
+                        kcn_block_reward=kcn_block_reward,
+                        lcn_block_reward=lcn_block_reward,
+                    )
+
+                # Calculate earnings for 24h average
+                if avg_hashrate_24h > 0:
+                    earnings_24h = EarningsCalculator.calculate_daily_earnings(
+                        hashrate_hs=avg_hashrate_24h,
+                        kcn_difficulty=avg_difficulty_24h_kcn,
+                        lcn_difficulty=avg_difficulty_24h_lcn,
+                        kcn_price_btc=prices.get("kcn_price"),
+                        kcn_price_usd=prices.get("kcn_price_usd"),
+                        lcn_price_btc=prices.get("lcn_price"),
+                        lcn_price_usd=prices.get("lcn_price_usd"),
+                        kcn_block_reward=kcn_block_reward,
+                        lcn_block_reward=lcn_block_reward,
+                    )
+                    # Use 24h as the default when available
+                    earnings = earnings_24h.copy()
+
+            except Exception as e:
+                logger.debug(f"Could not calculate historical earnings: {e}")
 
         # Log results
         logger.debug(
@@ -1230,6 +1408,92 @@ async def get_earnings_estimate():
             "kcn_difficulty": kcn_difficulty,
             "lcn_difficulty": lcn_difficulty,
         }
+
+        # Add scenario-based earnings for hover card
+        earnings["earnings_scenarios"] = {
+            "now": earnings_now if earnings_now else None,
+            "avg_12h": earnings_12h if earnings_12h else None,
+            "avg_24h": earnings_24h if earnings_24h else None,
+        }
+        earnings["has_historical_data"] = db_enabled and (earnings_12h or earnings_24h)
+
+        # Calculate actual earnings from blocks found (dynamic date range)
+        if db_enabled:
+            try:
+                from ..db.schema import get_stats_summary, DB_PATH
+                import aiosqlite
+
+                # Get 7-day block data first
+                stats_7d = await get_stats_summary(hours=168)  # 7 days = 168 hours
+                blocks_found_7d = stats_7d.get("blocks", {})
+                kcn_blocks_7d = blocks_found_7d.get("KCN", 0)
+                lcn_blocks_7d = blocks_found_7d.get("LCN", 0)
+
+                # Query database directly to find actual date range of blocks
+                actual_days = 1
+                try:
+                    async with aiosqlite.connect(DB_PATH) as db:
+                        # Get oldest and newest block timestamps
+                        cursor = await db.execute(
+                            "SELECT MIN(timestamp) as oldest, MAX(timestamp) as newest FROM blocks"
+                        )
+                        row = await cursor.fetchone()
+
+                        if row and row[0] and row[1]:
+                            # Calculate actual days in database
+                            time_span_seconds = row[1] - row[0]
+                            actual_days = max(
+                                1, time_span_seconds / 86400
+                            )  # at least 1 day
+                except Exception as e:
+                    logger.debug(f"Could not determine block date range: {e}")
+                    actual_days = 1
+
+                # Calculate actual earnings from found blocks
+                kcn_actual_coins_7d = kcn_blocks_7d * kcn_block_reward
+                lcn_actual_coins_7d = lcn_blocks_7d * lcn_block_reward
+
+                # Calculate daily average from actual days available
+                kcn_daily_avg = kcn_actual_coins_7d / actual_days
+                lcn_daily_avg = lcn_actual_coins_7d / actual_days
+
+                kcn_price_usd = prices.get("kcn_price_usd")
+                lcn_price_usd = prices.get("lcn_price_usd")
+
+                # Actual totals for available period
+                kcn_actual_usd_7d = (
+                    kcn_actual_coins_7d * kcn_price_usd if kcn_price_usd else 0
+                )
+                lcn_actual_usd_7d = (
+                    lcn_actual_coins_7d * lcn_price_usd if lcn_price_usd else 0
+                )
+
+                # Daily average from actual days
+                kcn_daily_avg_usd = (
+                    kcn_daily_avg * kcn_price_usd if kcn_price_usd else 0
+                )
+                lcn_daily_avg_usd = (
+                    lcn_daily_avg * lcn_price_usd if lcn_price_usd else 0
+                )
+
+                # Weekly projection (if less than 7 days, project to 7 days)
+                kcn_weekly_projection = kcn_daily_avg_usd * 7
+                lcn_weekly_projection = lcn_daily_avg_usd * 7
+
+                earnings["actual_7d_earnings"] = {
+                    "kcn_blocks_7d": kcn_blocks_7d,
+                    "lcn_blocks_7d": lcn_blocks_7d,
+                    "actual_days": round(actual_days, 1),
+                    "kcn_coins_7d": round(kcn_actual_coins_7d, 8),
+                    "lcn_coins_7d": round(lcn_actual_coins_7d, 8),
+                    "kcn_usd_per_day_avg": round(kcn_daily_avg_usd, 2),
+                    "lcn_usd_per_day_avg": round(lcn_daily_avg_usd, 2),
+                    "kcn_usd_per_week": round(kcn_weekly_projection, 2),
+                    "lcn_usd_per_week": round(lcn_weekly_projection, 2),
+                }
+            except Exception as e:
+                logger.debug(f"Could not calculate actual earnings: {e}")
+                earnings["actual_7d_earnings"] = None
 
         return JSONResponse(earnings)
 
@@ -1283,6 +1547,147 @@ async def get_shares_stats():
         stats["connected_workers"] = 0
 
     return JSONResponse(stats)
+
+
+@app.get("/api/blocks/export/json")
+async def export_blocks_json(chain: str = None):
+    """Export all blocks as JSON file"""
+    try:
+        from ..db.schema import get_recent_blocks
+        from datetime import datetime
+
+        # Get all blocks (use a high limit)
+        result = await get_recent_blocks(limit=999999, offset=0)
+        blocks = result["blocks"]
+
+        # Filter by chain if specified
+        if chain:
+            chain = chain.upper()
+            blocks = [b for b in blocks if b.get("chain") == chain]
+
+        # Convert Row objects to dicts if needed
+        blocks_list = []
+        for block in blocks:
+            if isinstance(block, dict):
+                blocks_list.append(block)
+            else:
+                # Convert Row or other object to dict
+                blocks_list.append(dict(block))
+
+        # Format timestamp to ISO datetime for better readability
+        for block in blocks_list:
+            if "timestamp" in block and block["timestamp"]:
+                try:
+                    block["timestamp_iso"] = datetime.utcfromtimestamp(
+                        block["timestamp"]
+                    ).isoformat()
+                except (TypeError, ValueError):
+                    block["timestamp_iso"] = str(block["timestamp"])
+
+        # Create JSON string
+        json_data = json.dumps(blocks_list, indent=2, default=str)
+
+        # Determine filename
+        chain_suffix = f"_{chain}" if chain else "_all"
+        filename = (
+            f"blocks_{datetime.now().strftime('%Y%m%d_%H%M%S')}{chain_suffix}.json"
+        )
+
+        # Return as file download
+        return StreamingResponse(
+            iter([json_data]),
+            media_type="application/json",
+            headers={"Content-Disposition": f"attachment; filename={filename}"},
+        )
+    except Exception as e:
+        logger.error(f"Failed to export blocks as JSON: {e}", exc_info=True)
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.get("/api/blocks/export/csv")
+async def export_blocks_csv(chain: str = None):
+    """Export all blocks as CSV file"""
+    try:
+        from ..db.schema import get_recent_blocks
+        from datetime import datetime
+
+        # Get all blocks (use a high limit)
+        result = await get_recent_blocks(limit=999999, offset=0)
+        blocks = result["blocks"]
+
+        # Filter by chain if specified
+        if chain:
+            chain = chain.upper()
+            blocks = [b for b in blocks if b.get("chain") == chain]
+
+        # Create CSV
+        output = StringIO()
+
+        if blocks:
+            # Convert Row objects to dicts if needed
+            blocks_list = []
+            for block in blocks:
+                if isinstance(block, dict):
+                    blocks_list.append(block)
+                else:
+                    # Convert Row or other object to dict
+                    blocks_list.append(dict(block))
+
+            # Get all field names from first block
+            fieldnames = list(blocks_list[0].keys())
+
+            # Convert timestamps to ISO format for readability
+            for block in blocks_list:
+                if "timestamp" in block and block["timestamp"]:
+                    try:
+                        block["timestamp_iso"] = datetime.utcfromtimestamp(
+                            block["timestamp"]
+                        ).isoformat()
+                    except (TypeError, ValueError):
+                        block["timestamp_iso"] = str(block["timestamp"])
+
+            # Add timestamp_iso to fieldnames if it was added
+            if "timestamp_iso" not in fieldnames:
+                fieldnames.append("timestamp_iso")
+
+            writer = csv.DictWriter(output, fieldnames=fieldnames)
+            writer.writeheader()
+
+            # Write all rows
+            for block in blocks_list:
+                writer.writerow(block)
+        else:
+            # Empty export
+            writer = csv.writer(output)
+            writer.writerow(
+                [
+                    "chain",
+                    "height",
+                    "block_hash",
+                    "worker",
+                    "difficulty",
+                    "timestamp",
+                    "accepted",
+                ]
+            )
+
+        csv_data = output.getvalue()
+
+        # Determine filename
+        chain_suffix = f"_{chain}" if chain else "_all"
+        filename = (
+            f"blocks_{datetime.now().strftime('%Y%m%d_%H%M%S')}{chain_suffix}.csv"
+        )
+
+        # Return as file download
+        return StreamingResponse(
+            iter([csv_data]),
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename={filename}"},
+        )
+    except Exception as e:
+        logger.error(f"Failed to export blocks as CSV: {e}", exc_info=True)
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 
 @app.websocket("/ws/shares")
